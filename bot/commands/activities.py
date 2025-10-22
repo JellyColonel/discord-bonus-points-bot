@@ -3,34 +3,29 @@
 import discord
 from discord import app_commands
 
-from core.database import get_today_date
-from data import get_activity_by_id, get_all_activities
-from utils.helpers import calculate_bp, is_event_active
-from utils.embeds import create_activities_embed
+from bot.core.database import get_today_date
+from bot.data import get_activity_by_id, get_all_activities
+from bot.utils.embeds import create_activities_embed
+from bot.utils.helpers import calculate_bp, is_event_active
 
 
 def setup_activity_commands(tree, db, config):
     """Setup activity-related commands."""
-    
+
     @tree.command(
-        name="activities", 
-        description="Показать список всех активностей и их статус"
+        name="activities", description="Показать список всех активностей и их статус"
     )
     async def activities_command(interaction: discord.Interaction):
         embed = create_activities_embed(db, interaction.user.id)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @tree.command(
-        name="complete", 
-        description="Отметить активность как выполненную"
-    )
+    @tree.command(name="complete", description="Отметить активность как выполненную")
     @app_commands.describe(activity="Выберите активность")
     async def complete_command(interaction: discord.Interaction, activity: str):
         activity_data = get_activity_by_id(activity)
         if not activity_data:
             await interaction.response.send_message(
-                "❌ Активность не найдена!", 
-                ephemeral=True
+                "❌ Активность не найдена!", ephemeral=True
             )
             return
 
@@ -62,36 +57,40 @@ def setup_activity_commands(tree, db, config):
         )
 
     @complete_command.autocomplete("activity")
-    async def complete_autocomplete(
-        interaction: discord.Interaction, 
-        current: str
-    ):
+    async def complete_autocomplete(interaction: discord.Interaction, current: str):
+        """Show only UNCOMPLETED activities"""
+        today = get_today_date()
+        completed_activities = db.get_user_completed_activities(
+            interaction.user.id, today
+        )
         all_activities = get_all_activities()
+
         choices = []
         for activity in all_activities:
-            if (
-                current.lower() in activity["name"].lower()
-                or current.lower() in activity["id"].lower()
-            ):
-                choices.append(
-                    app_commands.Choice(
-                        name=f"{activity['name']} ({activity['bp']}/{activity['bp_vip']} BP)",
-                        value=activity["id"],
+            # Only show activities that are NOT completed
+            if activity["id"] not in completed_activities:
+                if (
+                    current.lower() in activity["name"].lower()
+                    or current.lower() in activity["id"].lower()
+                ):
+                    # Add checkmark to show status visually
+                    choices.append(
+                        app_commands.Choice(
+                            name=f"{activity['name']} ({activity['bp']}/{activity['bp_vip']} BP)",
+                            value=activity["id"],
+                        )
                     )
-                )
         return choices[:25]
 
     @tree.command(
-        name="uncomplete", 
-        description="Отметить активность как невыполненную"
+        name="uncomplete", description="Отметить активность как невыполненную"
     )
     @app_commands.describe(activity="Выберите активность")
     async def uncomplete_command(interaction: discord.Interaction, activity: str):
         activity_data = get_activity_by_id(activity)
         if not activity_data:
             await interaction.response.send_message(
-                "❌ Активность не найдена!", 
-                ephemeral=True
+                "❌ Активность не найдена!", ephemeral=True
             )
             return
 
@@ -121,21 +120,27 @@ def setup_activity_commands(tree, db, config):
         )
 
     @uncomplete_command.autocomplete("activity")
-    async def uncomplete_autocomplete(
-        interaction: discord.Interaction, 
-        current: str
-    ):
+    async def uncomplete_autocomplete(interaction: discord.Interaction, current: str):
+        """Show only COMPLETED activities"""
+        today = get_today_date()
+        completed_activities = db.get_user_completed_activities(
+            interaction.user.id, today
+        )
         all_activities = get_all_activities()
+
         choices = []
         for activity in all_activities:
-            if (
-                current.lower() in activity["name"].lower()
-                or current.lower() in activity["id"].lower()
-            ):
-                choices.append(
-                    app_commands.Choice(
-                        name=f"{activity['name']} ({activity['bp']}/{activity['bp_vip']} BP)",
-                        value=activity["id"],
+            # Only show activities that ARE completed
+            if activity["id"] in completed_activities:
+                if (
+                    current.lower() in activity["name"].lower()
+                    or current.lower() in activity["id"].lower()
+                ):
+                    # Add checkmark to show status visually
+                    choices.append(
+                        app_commands.Choice(
+                            name=f"{activity['name']} ({activity['bp']}/{activity['bp_vip']} BP)",
+                            value=activity["id"],
+                        )
                     )
-                )
         return choices[:25]

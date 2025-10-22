@@ -3,14 +3,14 @@
 import discord
 from discord import app_commands
 
-from core.database import get_today_date
-from data import get_activity_by_id, get_all_activities
-from utils.helpers import calculate_bp, is_event_active
+from bot.core.database import get_today_date
+from bot.data import get_activity_by_id, get_all_activities
+from bot.utils.helpers import calculate_bp, is_event_active
 
 
 def setup_balance_commands(tree, db, config):
     """Setup balance-related commands."""
-    
+
     @tree.command(name="balance", description="Показать текущий баланс BP")
     async def balance_command(interaction: discord.Interaction):
         balance = db.get_user_bp_balance(interaction.user.id)
@@ -29,20 +29,13 @@ def setup_balance_commands(tree, db, config):
         )
 
         if is_event_active(db):
-            embed.add_field(
-                name="Событие", 
-                value="🎉 x2 BP активно!", 
-                inline=True
-            )
+            embed.add_field(name="Событие", value="🎉 x2 BP активно!", inline=True)
 
         embed.set_footer(text="Используйте /help для списка всех команд")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @tree.command(
-        name="setbalance", 
-        description="Установить текущий баланс BP"
-    )
+    @tree.command(name="setbalance", description="Установить текущий баланс BP")
     @app_commands.describe(amount="Количество BP")
     async def setbalance_command(interaction: discord.Interaction, amount: int):
         if amount < 0:
@@ -60,8 +53,7 @@ def setup_balance_commands(tree, db, config):
         )
 
     @tree.command(
-        name="total", 
-        description="Показать общее количество заработанных BP за день"
+        name="total", description="Показать общее количество заработанных BP за день"
     )
     async def total_command(interaction: discord.Interaction):
         vip_status = db.get_user_vip_status(interaction.user.id)
@@ -90,7 +82,9 @@ def setup_balance_commands(tree, db, config):
                 f"Выполнено активностей: {len(completed_activities)}/{len(all_activities)}\n"
                 f"VIP статус: {'✅' if vip_status else '❌'}{event_status}"
             ),
-            color=discord.Color.gold() if is_event_active(db) else discord.Color.green(),
+            color=discord.Color.gold()
+            if is_event_active(db)
+            else discord.Color.green(),
         )
 
         embed.set_footer(text="Используйте /help для списка всех команд")

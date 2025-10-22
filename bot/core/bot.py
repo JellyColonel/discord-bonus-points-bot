@@ -7,15 +7,15 @@ import discord
 import pytz
 from discord.ext import tasks
 
-from commands import setup_all_commands
-from core.database import Database
+from bot.commands import setup_all_commands  # FIXED: Added 'bot.' prefix
+from bot.core.database import Database  # FIXED: Full path
 
 logger = logging.getLogger(__name__)
 
 
 class BonusPointsBot(discord.Client):
     """Main bot class."""
-    
+
     def __init__(self, db: Database, config):
         intents = discord.Intents.default()
         super().__init__(intents=intents)
@@ -28,28 +28,23 @@ class BonusPointsBot(discord.Client):
         """Setup hook called when bot is ready."""
         # Only sync commands if not already synced
         if not self.synced:
+            # Setup commands first
+            logger.info("🔎 Setting up commands...")
+            setup_all_commands(self.tree, self.db, self.config)
+
             if self.config.GUILD_ID and self.config.GUILD_ID.isdigit():
                 guild = discord.Object(id=int(self.config.GUILD_ID))
 
-                # Setup commands
-                logger.info("🔎 Setting up commands...")
-                setup_all_commands(self.tree, self.db, self.config)
-
-                # Sync to guild
+                # Sync to specific guild (faster, for testing)
                 logger.info(f"🔄 Syncing commands to guild {self.config.GUILD_ID}...")
-                self.tree.copy_global_to(guild=guild)
                 await self.tree.sync(guild=guild)
-
                 logger.info(f"✅ Commands synced to guild {self.config.GUILD_ID}")
             else:
-                # Setup commands
-                setup_all_commands(self.tree, self.db, self.config)
-
-                # No guild specified, sync globally
-                self.tree.clear_commands(guild=None)
+                # Sync globally (slower, takes up to 1 hour)
+                logger.info("🔄 Syncing commands globally...")
                 await self.tree.sync()
                 logger.info(
-                    "✅ Commands synced globally (this may take up to 1 hour to propagate)"
+                    "✅ Commands synced globally (may take up to 1 hour to propagate)"
                 )
 
             self.synced = True

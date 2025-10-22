@@ -2,8 +2,9 @@
 
 import discord
 
-from core.database import get_today_date
-from data import ACTIVITIES
+from bot.core.database import get_today_date
+from bot.data import ACTIVITIES
+
 from .helpers import calculate_bp, is_event_active
 
 

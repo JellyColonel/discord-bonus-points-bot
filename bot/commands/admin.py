@@ -3,23 +3,21 @@
 import discord
 from discord import app_commands
 
-from utils.helpers import has_admin_role, is_event_active
+from bot.utils.helpers import has_admin_role, is_event_active
 
 
 def setup_admin_commands(tree, db, config):
     """Setup admin commands."""
-    
+
     @tree.command(
-        name="toggleevent", 
-        description="[ADMIN] Включить/выключить событие x2 BP"
+        name="toggleevent", description="[ADMIN] Включить/выключить событие x2 BP"
     )
     @app_commands.describe(enabled="Включить событие (true/false)")
     async def toggleevent_command(interaction: discord.Interaction, enabled: bool):
         # Check admin permissions
         if not has_admin_role(interaction, config):
             await interaction.response.send_message(
-                "❌ У вас нет прав для использования этой команды!", 
-                ephemeral=True
+                "❌ У вас нет прав для использования этой команды!", ephemeral=True
             )
             return
 
@@ -43,15 +41,14 @@ def setup_admin_commands(tree, db, config):
 
         await interaction.response.send_message(embed=embed)
 
-    @tree.command(
-        name="eventstatus", 
-        description="Проверить статус события x2 BP"
-    )
+    @tree.command(name="eventstatus", description="Проверить статус события x2 BP")
     async def eventstatus_command(interaction: discord.Interaction):
         event_active = is_event_active(db)
 
         embed = discord.Embed(
-            title="🎉 Статус События x2 BP" if event_active else "⚙️ Статус События x2 BP",
+            title="🎉 Статус События x2 BP"
+            if event_active
+            else "⚙️ Статус События x2 BP",
             description=f"Событие x2 BP: {'**АКТИВНО** 🎉' if event_active else '**НЕАКТИВНО**'}",
             color=discord.Color.gold() if event_active else discord.Color.blue(),
         )

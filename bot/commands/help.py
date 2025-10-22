@@ -1,14 +1,13 @@
 """Help command module."""
 
 import discord
-from discord import app_commands
 
-from utils.helpers import has_admin_role
+from bot.utils.helpers import has_admin_role
 
 
 def setup_help_command(tree, db, config):
     """Setup help command."""
-    
+
     @tree.command(name="help", description="Показать список всех команд")
     async def help_command(interaction: discord.Interaction):
         embed = discord.Embed(
@@ -46,9 +45,7 @@ def setup_help_command(tree, db, config):
                 "**`/toggleevent [true/false]`** - Включить/выключить событие x2 BP\n"
             )
             embed.add_field(
-                name="👑 Команды администратора", 
-                value=admin_cmds, 
-                inline=False
+                name="👑 Команды администратора", value=admin_cmds, inline=False
             )
 
         # Additional info
