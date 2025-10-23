@@ -187,6 +187,8 @@ def _initialize_caches():
 
 _initialize_caches()
 
+TOTAL_ACTIVITIES = len(_ALL_ACTIVITIES_CACHE)
+
 
 def get_all_activities():
     """Get flat list of all activities (cached). O(1)"""

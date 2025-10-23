@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 _autocomplete_cache = {}
-_CACHE_TIMEOUT = timedelta(seconds=2)  # Very short cache for rapid typing
+_CACHE_TIMEOUT = timedelta(seconds=10)
+_MAX_CACHE_SIZE = 200
 
 
 def _get_cached_completed_activities(user_id, today):
@@ -41,7 +42,7 @@ def _set_autocomplete_cache(user_id, today, data):
     _autocomplete_cache[cache_key] = (data, datetime.now())
 
     # Keep cache size manageable
-    if len(_autocomplete_cache) > 100:
+    if len(_autocomplete_cache) > _MAX_CACHE_SIZE:
         _autocomplete_cache.clear()
 
 

@@ -48,6 +48,12 @@ def setup_logging():
     logging.getLogger("discord.gateway").setLevel(logging.INFO)
     logging.getLogger("discord.client").setLevel(logging.INFO)
 
+    # Production logging levels
+    logging.getLogger("bot.core.database").setLevel(logging.INFO)
+    logging.getLogger("bot.commands").setLevel(logging.INFO)
+    # Keep bot core at DEBUG for important startup/shutdown info
+    logging.getLogger("bot.core.bot").setLevel(logging.INFO)
+
     # Get logger for our bot
     logger = logging.getLogger(__name__)
     logger.info("=" * 80)

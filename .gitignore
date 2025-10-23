@@ -13,7 +13,7 @@ ENV/
 
 # Database
 *.db
-*.db-journal
+*.db-*
 
 # Logs
 *.log

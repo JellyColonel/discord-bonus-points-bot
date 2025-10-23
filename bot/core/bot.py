@@ -1,6 +1,7 @@
 # bonus_points_bot/bot/core/bot.py
 """Bot class and setup."""
 
+import asyncio
 import logging
 from datetime import datetime, time, timedelta
 
@@ -92,6 +93,10 @@ class BonusPointsBot(discord.Client):
             self.daily_reset.start()
             logger.info("✅ Daily reset task started")
 
+        if not self.weekly_maintenance.is_running():
+            self.weekly_maintenance.start()
+            logger.info("✅ Weekly maintenance task started")
+
         logger.info("=" * 80)
         logger.info("🎉 Bot is ready and listening for commands!")
         logger.info("=" * 80)
@@ -171,6 +176,17 @@ class BonusPointsBot(discord.Client):
             logger.error("=" * 80)
             logger.error(f"❌ DAILY RESET FAILED: {e}", exc_info=True)
             logger.error("=" * 80)
+
+    @tasks.loop(hours=168)  # Once per week
+    async def weekly_maintenance(self):
+        """Run database optimization weekly."""
+        logger.info("🔧 Running weekly database maintenance...")
+        try:
+            # Run in thread pool to not block Discord
+            await asyncio.to_thread(self.db.optimize_database)
+            logger.info("✅ Database maintenance complete")
+        except Exception as e:
+            logger.error(f"❌ Database maintenance failed: {e}")
 
     @daily_reset.before_loop
     async def before_daily_reset(self):

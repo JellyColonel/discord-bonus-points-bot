@@ -21,8 +21,22 @@ class Database:
         logger.info("Database initialization complete")
 
     def get_connection(self):
-        """Get a database connection."""
-        return sqlite3.connect(self.db_path)
+        """Get a database connection with performance optimizations."""
+        conn = sqlite3.connect(self.db_path)
+
+        # Write-Ahead Logging mode - better concurrency
+        conn.execute("PRAGMA journal_mode=WAL")
+
+        # Increase cache size from 2MB to 10MB
+        conn.execute("PRAGMA cache_size=-10000")
+
+        # Faster synchronization (safe for Discord bot use case)
+        conn.execute("PRAGMA synchronous=NORMAL")
+
+        # Use memory for temporary tables
+        conn.execute("PRAGMA temp_store=MEMORY")
+
+        return conn
 
     def init_db(self):
         """Initialize database tables."""
@@ -72,12 +86,36 @@ class Database:
             """)
             logger.debug("Settings table created/verified")
 
-            # Add index for faster activity queries
+            # ============================================================
+            # OPTIMIZED INDEXES - Much faster queries!
+            # ============================================================
+
+            # Primary lookup index - covers most queries
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_activities_lookup 
                 ON activities(user_id, date, activity_id)
             """)
-            logger.debug("Activity index created/verified")
+
+            # Specialized index for autocomplete (finding completed activities)
+            # Partial index only includes completed=1 rows (smaller, faster)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_activities_completed 
+                ON activities(user_id, date) WHERE completed = 1
+            """)
+
+            # Index for date-based queries (cleanup, daily reset)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_activities_date 
+                ON activities(date)
+            """)
+
+            # Covering index for status checks (includes completed in index)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_activities_status
+                ON activities(user_id, activity_id, date, completed)
+            """)
+
+            logger.debug("Activity indexes created/verified")
 
             conn.commit()
         logger.info("Database tables ready")
@@ -237,6 +275,14 @@ class Database:
                 (key, str(value), str(value)),
             )
             conn.commit()
+
+    def optimize_database(self):
+        """Run VACUUM and ANALYZE to optimize database performance."""
+        logger.info("Running database optimization...")
+        with self.get_connection() as conn:
+            conn.execute("VACUUM")
+            conn.execute("ANALYZE")
+        logger.info("Database optimization complete")
 
 
 def get_today_date() -> str:

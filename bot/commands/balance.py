@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 
 from bot.core.database import get_today_date
-from bot.data import get_activity_by_id, get_all_activities
+from bot.data import TOTAL_ACTIVITIES, get_activity_by_id
 from bot.utils.helpers import calculate_bp, is_event_active
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,6 @@ def setup_balance_commands(tree, db, config):
             )
 
             total_bp = 0
-            all_activities = get_all_activities()
 
             for activity_id in completed_activities:
                 activity = get_activity_by_id(activity_id)
@@ -114,7 +113,7 @@ def setup_balance_commands(tree, db, config):
                 description=(
                     f"**Заработано сегодня: {total_bp} BP**\n"
                     f"**Текущий баланс: {balance} BP**\n\n"
-                    f"Выполнено активностей: {len(completed_activities)}/{len(all_activities)}\n"
+                    f"Выполнено активностей: {len(completed_activities)}/{len(TOTAL_ACTIVITIES)}\n"
                     f"VIP статус: {'✅' if vip_status else '❌'}{event_status}"
                 ),
                 color=discord.Color.gold()
