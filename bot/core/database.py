@@ -1,16 +1,16 @@
+# bonus_points_bot/bot/core/database.py
 """Database operations module."""
 
 import sqlite3
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import pytz
 
 
 class Database:
     """Handles all database operations for the bot."""
-    
+
     def __init__(self, db_path: str = "bonus_points.db"):
         self.db_path = db_path
         self.init_db()
@@ -69,8 +69,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT vip_status FROM users WHERE user_id = ?", 
-            (str(user_id),)
+            "SELECT vip_status FROM users WHERE user_id = ?", (str(user_id),)
         )
         result = cursor.fetchone()
         conn.close()
@@ -80,10 +79,13 @@ class Database:
         """Set user's VIP status."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO users (user_id, vip_status) VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET vip_status = ?
-        """, (str(user_id), int(vip_status), int(vip_status)))
+        """,
+            (str(user_id), int(vip_status), int(vip_status)),
+        )
         conn.commit()
         conn.close()
 
@@ -93,8 +95,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT bp_balance FROM users WHERE user_id = ?", 
-            (str(user_id),)
+            "SELECT bp_balance FROM users WHERE user_id = ?", (str(user_id),)
         )
         result = cursor.fetchone()
         conn.close()
@@ -104,10 +105,13 @@ class Database:
         """Set user's BP balance."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO users (user_id, bp_balance) VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET bp_balance = ?
-        """, (str(user_id), int(balance), int(balance)))
+        """,
+            (str(user_id), int(balance), int(balance)),
+        )
         conn.commit()
         conn.close()
 
@@ -130,24 +134,32 @@ class Database:
         """Check if an activity is completed."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT completed FROM activities 
             WHERE user_id = ? AND activity_id = ? AND date = ?
-        """, (str(user_id), activity_id, date))
+        """,
+            (str(user_id), activity_id, date),
+        )
         result = cursor.fetchone()
         conn.close()
         return bool(result[0]) if result else False
 
-    def set_activity_status(self, user_id: int, activity_id: str, date: str, completed: bool):
+    def set_activity_status(
+        self, user_id: int, activity_id: str, date: str, completed: bool
+    ):
         """Set activity completion status."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO activities (user_id, activity_id, date, completed)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(user_id, activity_id, date) 
             DO UPDATE SET completed = ?
-        """, (str(user_id), activity_id, date, int(completed), int(completed)))
+        """,
+            (str(user_id), activity_id, date, int(completed), int(completed)),
+        )
         conn.commit()
         conn.close()
 
@@ -155,10 +167,13 @@ class Database:
         """Get list of completed activities for a user on a specific date."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT activity_id FROM activities 
             WHERE user_id = ? AND date = ? AND completed = 1
-        """, (str(user_id), date))
+        """,
+            (str(user_id), date),
+        )
         results = cursor.fetchall()
         conn.close()
         return [row[0] for row in results]
@@ -177,10 +192,13 @@ class Database:
         """Set a setting value in database."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO settings (key, value) VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = ?
-        """, (key, str(value), str(value)))
+        """,
+            (key, str(value), str(value)),
+        )
         conn.commit()
         conn.close()
 

@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/commands/admin.py
 """Admin commands module."""
 
 import discord

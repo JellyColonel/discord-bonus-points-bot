@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/commands/help.py
 """Help command module."""
 
 import discord

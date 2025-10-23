@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/main.py
 """Main bot module."""
 
 import logging

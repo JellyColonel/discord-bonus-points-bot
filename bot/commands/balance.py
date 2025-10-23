@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/commands/balance.py
 """Balance-related commands."""
 
 import discord

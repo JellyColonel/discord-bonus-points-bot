@@ -4,6 +4,7 @@ Folder Structure Display Tool
 Displays directory tree structure with option to ignore specific folders
 """
 
+# bonus_points_bot/folder_structure.py
 import argparse
 from pathlib import Path
 

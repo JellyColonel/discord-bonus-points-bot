@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/core/bot.py
 """Bot class and setup."""
 
 import logging

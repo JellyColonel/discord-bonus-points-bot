@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/utils/embeds.py
 """Embed creation utilities."""
 
 import discord

@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/data/activities.py
 ACTIVITIES = {
     "Одиночные": [
         {

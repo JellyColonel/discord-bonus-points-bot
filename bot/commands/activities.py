@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/commands/activites.py
 """Activity-related commands."""
 
 import discord
