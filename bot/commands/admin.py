@@ -29,6 +29,8 @@ def setup_admin_commands(tree, db, config):
                 )
                 return
 
+            await interaction.response.defer(ephemeral=False)
+
             # Toggle event
             db.set_setting("double_bp_event", str(enabled))
 
@@ -47,7 +49,8 @@ def setup_admin_commands(tree, db, config):
                 inline=False,
             )
 
-            await interaction.response.send_message(embed=embed)
+            # Use followup instead of response
+            await interaction.followup.send(embed=embed)
             logger.info(f"Admin {interaction.user.id} toggled event to {enabled}")
 
             # Update all active dashboards (event status affects BP values)
@@ -66,7 +69,9 @@ def setup_admin_commands(tree, db, config):
 
                     for user_id in user_ids:
                         try:
-                            await _update_activities_message(db, user_id)
+                            await _update_activities_message(
+                                db, user_id, interaction.client
+                            )
                             updated_count += 1
                         except Exception as e:
                             logger.error(
@@ -78,10 +83,13 @@ def setup_admin_commands(tree, db, config):
                 logger.error(f"Error updating dashboards after event toggle: {e}")
         except Exception as e:
             logger.error(f"Error in toggleevent command: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при изменении события. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ Произошла ошибка при изменении события. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @tree.command(name="eventstatus", description="Проверить статус события x2 BP")
     async def eventstatus_command(interaction: discord.Interaction):
@@ -108,10 +116,13 @@ def setup_admin_commands(tree, db, config):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Error in eventstatus command: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при проверке статуса события. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.response.send_message(
+                    "❌ Произошла ошибка при проверке статуса события. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @tree.command(name="testreset", description="[ADMIN] Test daily reset manually")
     async def testreset_command(interaction: discord.Interaction):
@@ -123,9 +134,7 @@ def setup_admin_commands(tree, db, config):
                 )
                 return
 
-            await interaction.response.send_message(
-                "🔄 Запускаю тестовый сброс...", ephemeral=True
-            )
+            await interaction.response.defer(ephemeral=True)
 
             logger.info(f"Manual reset triggered by admin {interaction.user.id}")
 

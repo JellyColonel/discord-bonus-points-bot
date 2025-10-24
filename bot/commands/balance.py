@@ -34,6 +34,8 @@ def setup_balance_commands(tree, db, config):
     @tree.command(name="balance", description="Показать текущий баланс BP")
     async def balance_command(interaction: discord.Interaction):
         try:
+            await interaction.response.defer(ephemeral=False)
+
             balance = db.get_user_bp_balance(interaction.user.id)
             vip_status = db.get_user_vip_status(interaction.user.id)
 
@@ -54,20 +56,23 @@ def setup_balance_commands(tree, db, config):
 
             embed.set_footer(text="Используйте /help для списка всех команд")
 
-            await interaction.response.send_message(embed=embed, ephemeral=False)
+            # Use followup instead of response
+            response_message = await interaction.followup.send(embed=embed, wait=True)
 
-            # Get the message and schedule deletion
-            response_message = await interaction.original_response()
+            # Schedule deletion
             asyncio.create_task(_delete_message_after_delay(response_message, 10))
         except Exception as e:
             logger.error(
                 f"Error in balance command for user {interaction.user.id}: {e}",
                 exc_info=True,
             )
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при получении баланса. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ Произошла ошибка при получении баланса. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @tree.command(name="setbalance", description="Установить текущий баланс BP")
     @app_commands.describe(amount="Количество BP")
@@ -88,23 +93,27 @@ def setup_balance_commands(tree, db, config):
                 )
                 return
 
+            await interaction.response.defer(ephemeral=False)
+
             db.set_user_bp_balance(interaction.user.id, amount)
 
-            await interaction.response.send_message(
+            # Use followup instead of response
+            response_message = await interaction.followup.send(
                 f"✅ Баланс установлен: **{amount} BP**",
-                ephemeral=False,
+                wait=True,
             )
             logger.info(f"User {interaction.user.id} set balance to {amount}")
 
-            # Get the message and schedule deletion
-            response_message = await interaction.original_response()
+            # Schedule deletion
             asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
             # Update dashboard if it exists (balance is shown in dashboard)
             try:
                 from bot.commands.activities import _update_activities_message
 
-                await _update_activities_message(db, interaction.user.id)
+                await _update_activities_message(
+                    db, interaction.user.id, interaction.client
+                )
             except Exception as e:
                 logger.debug(f"Could not update dashboard after setbalance: {e}")
         except Exception as e:
@@ -112,16 +121,21 @@ def setup_balance_commands(tree, db, config):
                 f"Error in setbalance command for user {interaction.user.id}: {e}",
                 exc_info=True,
             )
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при установке баланса. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ Произошла ошибка при установке баланса. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @tree.command(
         name="total", description="Показать общее количество заработанных BP за день"
     )
     async def total_command(interaction: discord.Interaction):
         try:
+            await interaction.response.defer(ephemeral=False)
+
             vip_status = db.get_user_vip_status(interaction.user.id)
             today = get_today_date()
             completed_activities = db.get_user_completed_activities(
@@ -154,42 +168,49 @@ def setup_balance_commands(tree, db, config):
 
             embed.set_footer(text="Используйте /help для списка всех команд")
 
-            # Send as non-ephemeral and schedule deletion after 10 seconds
-            await interaction.response.send_message(embed=embed, ephemeral=False)
+            # Use followup instead of response
+            response_message = await interaction.followup.send(embed=embed, wait=True)
 
-            # Get the message and schedule deletion
-            response_message = await interaction.original_response()
+            # Schedule deletion
             asyncio.create_task(_delete_message_after_delay(response_message, 10))
         except Exception as e:
             logger.error(
                 f"Error in total command for user {interaction.user.id}: {e}",
                 exc_info=True,
             )
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при подсчёте итогов. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ Произошла ошибка при подсчёте итогов. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @tree.command(name="setvip", description="Установить VIP статус")
     @app_commands.describe(status="VIP статус (true/false)")
     async def setvip_command(interaction: discord.Interaction, status: bool):
         try:
+            await interaction.response.defer(ephemeral=False)
+
             db.set_user_vip_status(interaction.user.id, status)
-            await interaction.response.send_message(
+
+            # Use followup instead of response
+            response_message = await interaction.followup.send(
                 f"VIP статус {'✅ активирован' if status else '❌ деактивирован'}",
-                ephemeral=False,
+                wait=True,
             )
             logger.info(f"User {interaction.user.id} set VIP status to {status}")
 
-            # Get the message and schedule deletion
-            response_message = await interaction.original_response()
+            # Schedule deletion
             asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
             # Update dashboard if it exists (VIP status affects BP values)
             try:
                 from bot.commands.activities import _update_activities_message
 
-                await _update_activities_message(db, interaction.user.id)
+                await _update_activities_message(
+                    db, interaction.user.id, interaction.client
+                )
             except Exception as e:
                 logger.debug(f"Could not update dashboard after setvip: {e}")
         except Exception as e:
@@ -197,7 +218,10 @@ def setup_balance_commands(tree, db, config):
                 f"Error in setvip command for user {interaction.user.id}: {e}",
                 exc_info=True,
             )
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при установке VIP статуса. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ Произошла ошибка при установке VIP статуса. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass

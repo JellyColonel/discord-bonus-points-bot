@@ -72,7 +72,7 @@ class BonusPointsBot(discord.Client):
                     logger.error(f"Error details: {e.text}")
             else:
                 # Sync globally
-                logger.info("🌍 Syncing commands globally...")
+                logger.info("🌐 Syncing commands globally...")
                 logger.warning(
                     "⚠️ GUILD_ID not set or invalid - global sync takes up to 1 hour!"
                 )
@@ -163,7 +163,8 @@ class BonusPointsBot(discord.Client):
 
             for user_id in user_ids:
                 try:
-                    await _update_activities_message(self.db, user_id)
+                    # ✅ Pass bot instance for auto-restore capability
+                    await _update_activities_message(self.db, user_id, self)
                     updated_count += 1
                 except Exception as e:
                     logger.error(f"Failed to update dashboard for user {user_id}: {e}")
@@ -209,7 +210,7 @@ class BonusPointsBot(discord.Client):
             deleted = cursor.rowcount
             if deleted > 0:
                 logger.info(
-                    f"🗑️  Deleted {deleted} old activity records (before {cutoff_date})"
+                    f"🗑️ Deleted {deleted} old activity records (before {cutoff_date})"
                 )
 
             conn.commit()
