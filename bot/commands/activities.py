@@ -163,11 +163,56 @@ async def _restore_dashboards_from_db(bot: discord.Client, db: Database):
         logger.error(f"Failed to restore dashboards: {e}", exc_info=True)
 
 
-async def _update_activities_message(db: Database, user_id: int):
-    """Update an existing activities dashboard message."""
+async def _update_activities_message(
+    db: Database, user_id: int, bot: discord.Client = None
+):
+    """Update an existing activities dashboard message.
+
+    If dashboard is not in memory but exists in database, automatically restore it.
+    """
     if user_id not in _activities_messages:
-        logger.warning(f"No dashboard found for user {user_id}")
-        return
+        # Check if dashboard exists in database
+        saved_dashboard = db.get_dashboard_message(user_id)
+
+        if saved_dashboard and bot:
+            channel_id, message_id = saved_dashboard
+            logger.info(
+                f"Dashboard not in memory for user {user_id}, attempting to restore from DB..."
+            )
+
+            try:
+                # Try to restore the dashboard
+                channel = bot.get_channel(channel_id)
+                if channel is None:
+                    channel = await bot.fetch_channel(channel_id)
+
+                message = await channel.fetch_message(message_id)
+
+                # Successfully restored - add to memory cache
+                _activities_messages[user_id] = {
+                    "message": message,
+                    "channel": channel,
+                    "timestamp": datetime.now(),
+                }
+                logger.info(
+                    f"✅ Auto-restored dashboard for user {user_id} from database"
+                )
+
+            except (discord.NotFound, discord.Forbidden) as e:
+                logger.warning(f"Could not restore dashboard for user {user_id}: {e}")
+                db.delete_dashboard_message(user_id)
+                return
+            except Exception as e:
+                logger.error(
+                    f"Error restoring dashboard for user {user_id}: {e}", exc_info=True
+                )
+                return
+        else:
+            # No dashboard in memory or database
+            logger.debug(
+                f"No dashboard found for user {user_id} (not in memory or database)"
+            )
+            return
 
     dashboard_data = _activities_messages[user_id]
     message = dashboard_data["message"]
@@ -399,15 +444,15 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         user_id = interaction.user.id
         today = get_today_date()
 
+        await interaction.response.defer(ephemeral=False)
+
         activity_data = get_activity_by_id(activity)
         if not activity_data:
-            await interaction.response.send_message(
-                "Активность не найдена!", ephemeral=True
-            )
+            await interaction.followup.send("Активность не найдена!", ephemeral=True)
             return
 
         if db.get_activity_status(user_id, activity, today):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Активность '{activity_data['name']}' уже выполнена!",
                 ephemeral=True,
             )
@@ -421,20 +466,19 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         bp = calculate_bp(activity_data, vip_status, db)
         new_balance = db.add_user_bp(user_id, bp)
 
-        await interaction.response.send_message(
+        # Use followup instead of response
+        response_message = await interaction.followup.send(
             f"Активность **{activity_data['name']}** выполнена!\n"
             f"+{bp} BP\n"
             f"Текущий баланс: {new_balance} BP",
-            ephemeral=False,
+            wait=True,
         )
 
-        # Get the message and schedule deletion
-        response_message = await interaction.original_response()
+        # Schedule deletion
         asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
-        # Update dashboard if it exists
-        if user_id in _activities_messages:
-            await _update_activities_message(db, user_id)
+        # Update dashboard (auto-restores from DB if needed)
+        await _update_activities_message(db, user_id, interaction.client)
 
     async def uncomplete_autocomplete(
         interaction: discord.Interaction, current: str
@@ -488,15 +532,15 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         user_id = interaction.user.id
         today = get_today_date()
 
+        await interaction.response.defer(ephemeral=False)
+
         activity_data = get_activity_by_id(activity)
         if not activity_data:
-            await interaction.response.send_message(
-                "Активность не найдена!", ephemeral=True
-            )
+            await interaction.followup.send("Активность не найдена!", ephemeral=True)
             return
 
         if not db.get_activity_status(user_id, activity, today):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Активность '{activity_data['name']}' не выполнена!",
                 ephemeral=True,
             )
@@ -510,17 +554,16 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         bp = calculate_bp(activity_data, vip_status, db)
         new_balance = db.subtract_user_bp(user_id, bp)
 
-        await interaction.response.send_message(
+        # Use followup instead of response
+        response_message = await interaction.followup.send(
             f"Активность **{activity_data['name']}** отменена.\n"
             f"-{bp} BP\n"
             f"Текущий баланс: {new_balance} BP",
-            ephemeral=False,
+            wait=True,
         )
 
-        # Get the message and schedule deletion
-        response_message = await interaction.original_response()
+        # Schedule deletion
         asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
-        # Update dashboard if it exists
-        if user_id in _activities_messages:
-            await _update_activities_message(db, user_id)
+        # Update dashboard (auto-restores from DB if needed)
+        await _update_activities_message(db, user_id, interaction.client)

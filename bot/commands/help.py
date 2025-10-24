@@ -78,7 +78,10 @@ def setup_help_command(tree, db, config):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Error in help command: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "❌ Произошла ошибка при отображении справки. Попробуйте позже.",
-                ephemeral=True,
-            )
+            try:
+                await interaction.response.send_message(
+                    "❌ Произошла ошибка при отображении справки. Попробуйте позже.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
