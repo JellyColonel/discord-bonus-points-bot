@@ -15,22 +15,16 @@ from bot.utils.helpers import calculate_bp
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# OPTIMIZATION: Autocomplete caching to reduce DB calls
-# ============================================================================
-
 _autocomplete_cache = {}
 _CACHE_TIMEOUT = timedelta(seconds=10)
 _MAX_CACHE_SIZE = 200
 
-# ============================================================================
-# UX IMPROVEMENT: Track activities messages for dynamic updates
-# WITH PERSISTENCE: Now also saved to database
-# ONE DASHBOARD PER USER: Old dashboards are deleted when creating new ones
-# ============================================================================
-
 _activities_messages = {}  # user_id -> {"message": message, "channel": channel, "timestamp": datetime}
-_MESSAGE_CACHE_TIMEOUT = timedelta(minutes=10)  # Keep messages for 10 minutes
+_MESSAGE_CACHE_TIMEOUT = timedelta(minutes=10)
+
+DISCORD_AUTOCOMPLETE_LIMIT = 25  # Discord's maximum autocomplete choices
+AUTOCOMPLETE_SEARCH_BUFFER = 100  # Search this many activities before filtering
+DISCORD_CHOICE_NAME_MAX_LENGTH = 100  # Discord's maximum length for choice names
 
 
 def _clean_cache():
@@ -371,18 +365,25 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         # Get user's completed activities
         completed_activities = set(db.get_user_completed_activities(user_id, today))
 
-        # Search and filter out completed activities
-        results = search_activities(current, max_results=25)
+        # KEY FIX: Search through MORE activities initially
+        # This ensures we have enough uncompleted activities after filtering
+        # Even if the first 25 matches are all completed, we'll still have options
+        results = search_activities(current, max_results=AUTOCOMPLETE_SEARCH_BUFFER)
+
+        # Filter out completed activities
         uncompleted = [
             activity
             for activity in results
             if activity["id"] not in completed_activities
         ]
 
-        # Create choices
+        # Create choices (limit to Discord's autocomplete maximum)
         choices = [
-            app_commands.Choice(name=activity["name"][:100], value=activity["id"])
-            for activity in uncompleted[:25]
+            app_commands.Choice(
+                name=activity["name"][DISCORD_CHOICE_NAME_MAX_LENGTH],
+                value=activity["id"],
+            )
+            for activity in uncompleted[:DISCORD_AUTOCOMPLETE_LIMIT]
         ]
 
         # Cache the results
@@ -457,16 +458,21 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         # Get user's completed activities
         completed_activity_ids = set(db.get_user_completed_activities(user_id, today))
 
+        # KEY FIX: Search through MORE activities initially
+        results = search_activities(current, max_results=AUTOCOMPLETE_SEARCH_BUFFER)
+
         # Filter to only show completed activities
-        results = search_activities(current, max_results=25)
         completed = [
             activity for activity in results if activity["id"] in completed_activity_ids
         ]
 
-        # Create choices
+        # Create choices (limit to Discord's autocomplete maximum)
         choices = [
-            app_commands.Choice(name=activity["name"][:100], value=activity["id"])
-            for activity in completed[:25]
+            app_commands.Choice(
+                name=activity["name"][DISCORD_CHOICE_NAME_MAX_LENGTH],
+                value=activity["id"],
+            )
+            for activity in completed[:DISCORD_AUTOCOMPLETE_LIMIT]
         ]
 
         # Cache the results
