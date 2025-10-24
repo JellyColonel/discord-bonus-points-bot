@@ -380,7 +380,7 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         # Create choices (limit to Discord's autocomplete maximum)
         choices = [
             app_commands.Choice(
-                name=activity["name"][DISCORD_CHOICE_NAME_MAX_LENGTH],
+                name=activity["name"][:DISCORD_CHOICE_NAME_MAX_LENGTH],
                 value=activity["id"],
             )
             for activity in uncompleted[:DISCORD_AUTOCOMPLETE_LIMIT]
@@ -469,7 +469,7 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         # Create choices (limit to Discord's autocomplete maximum)
         choices = [
             app_commands.Choice(
-                name=activity["name"][DISCORD_CHOICE_NAME_MAX_LENGTH],
+                name=activity["name"][:DISCORD_CHOICE_NAME_MAX_LENGTH],
                 value=activity["id"],
             )
             for activity in completed[:DISCORD_AUTOCOMPLETE_LIMIT]
