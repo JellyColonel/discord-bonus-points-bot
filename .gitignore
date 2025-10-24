@@ -13,7 +13,7 @@ ENV/
 
 # Database
 *.db
-*.db-journal
+*.db-*
 
 # Logs
 *.log
@@ -28,3 +28,6 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Folder structure
+folder_structure_*

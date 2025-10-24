@@ -1,3 +1,4 @@
+# bonus_points_bot/bot/utils/helpers.py
 """Helper functions for the bot."""
 
 import discord
