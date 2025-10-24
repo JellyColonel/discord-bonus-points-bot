@@ -54,7 +54,11 @@ def setup_balance_commands(tree, db, config):
 
             embed.set_footer(text="Используйте /help для списка всех команд")
 
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed, ephemeral=False)
+
+            # Get the message and schedule deletion
+            response_message = await interaction.original_response()
+            asyncio.create_task(_delete_message_after_delay(response_message, 10))
         except Exception as e:
             logger.error(
                 f"Error in balance command for user {interaction.user.id}: {e}",
@@ -88,9 +92,13 @@ def setup_balance_commands(tree, db, config):
 
             await interaction.response.send_message(
                 f"✅ Баланс установлен: **{amount} BP**",
-                ephemeral=True,
+                ephemeral=False,
             )
             logger.info(f"User {interaction.user.id} set balance to {amount}")
+
+            # Get the message and schedule deletion
+            response_message = await interaction.original_response()
+            asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
             # Update dashboard if it exists (balance is shown in dashboard)
             try:
@@ -169,9 +177,13 @@ def setup_balance_commands(tree, db, config):
             db.set_user_vip_status(interaction.user.id, status)
             await interaction.response.send_message(
                 f"VIP статус {'✅ активирован' if status else '❌ деактивирован'}",
-                ephemeral=True,
+                ephemeral=False,
             )
             logger.info(f"User {interaction.user.id} set VIP status to {status}")
+
+            # Get the message and schedule deletion
+            response_message = await interaction.original_response()
+            asyncio.create_task(_delete_message_after_delay(response_message, 10))
 
             # Update dashboard if it exists (VIP status affects BP values)
             try:

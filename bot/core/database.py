@@ -4,7 +4,7 @@
 import logging
 import sqlite3
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pytz
 
@@ -85,6 +85,18 @@ class Database:
                 )
             """)
             logger.debug("Settings table created/verified")
+
+            # Dashboard messages table for persistent dashboard tracking
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS dashboard_messages (
+                    user_id TEXT PRIMARY KEY,
+                    channel_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            logger.debug("Dashboard messages table created/verified")
 
             # ============================================================
             # OPTIMIZED INDEXES - Much faster queries!
@@ -275,6 +287,85 @@ class Database:
                 (key, str(value), str(value)),
             )
             conn.commit()
+
+    # Dashboard persistence methods
+    def save_dashboard_message(self, user_id: int, channel_id: int, message_id: int):
+        """Save dashboard message IDs to database for persistence."""
+        logger.info(
+            f"Saving dashboard for user {user_id}: channel={channel_id}, message={message_id}"
+        )
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO dashboard_messages (user_id, channel_id, message_id, last_updated)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET 
+                    channel_id = ?,
+                    message_id = ?,
+                    last_updated = ?
+            """,
+                (
+                    str(user_id),
+                    str(channel_id),
+                    str(message_id),
+                    datetime.utcnow().isoformat(),
+                    str(channel_id),
+                    str(message_id),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            conn.commit()
+
+    def get_dashboard_message(self, user_id: int) -> Optional[Tuple[int, int]]:
+        """Get saved dashboard message IDs for a user.
+
+        Returns:
+            Tuple of (channel_id, message_id) or None if not found
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT channel_id, message_id 
+                FROM dashboard_messages 
+                WHERE user_id = ?
+            """,
+                (str(user_id),),
+            )
+            result = cursor.fetchone()
+            if result:
+                channel_id = int(result[0])
+                message_id = int(result[1])
+                logger.debug(
+                    f"Retrieved dashboard for user {user_id}: channel={channel_id}, message={message_id}"
+                )
+                return (channel_id, message_id)
+            return None
+
+    def delete_dashboard_message(self, user_id: int):
+        """Delete dashboard message record for a user."""
+        logger.info(f"Deleting dashboard record for user {user_id}")
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM dashboard_messages WHERE user_id = ?", (str(user_id),)
+            )
+            conn.commit()
+
+    def get_all_dashboard_messages(self) -> List[Tuple[int, int, int]]:
+        """Get all saved dashboard messages.
+
+        Returns:
+            List of tuples: (user_id, channel_id, message_id)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT user_id, channel_id, message_id FROM dashboard_messages"
+            )
+            results = cursor.fetchall()
+            return [(int(row[0]), int(row[1]), int(row[2])) for row in results]
 
     def optimize_database(self):
         """Run VACUUM and ANALYZE to optimize database performance."""
