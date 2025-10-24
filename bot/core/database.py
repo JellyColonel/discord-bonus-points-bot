@@ -1,9 +1,9 @@
 # bonus_points_bot/bot/core/database.py
-"""Database operations module."""
+"""Database operations module - FIXED with smart date handling."""
 
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, time
 from typing import List, Optional, Tuple
 
 import pytz
@@ -377,7 +377,47 @@ class Database:
 
 
 def get_today_date() -> str:
-    """Get today's date in Moscow timezone."""
+    """
+    Get today's date in Moscow timezone.
+
+    FIXED: Returns the "activity day" which continues until 07:00 MSK.
+    - From 00:00 to 06:59 MSK → Returns YESTERDAY's date (activities still valid)
+    - From 07:00 to 23:59 MSK → Returns TODAY's date (new activity day)
+
+    This prevents the "midnight reset bug" where progress appears at 0
+    between 00:00-07:00 before the actual daily reset runs.
+    """
+    moscow_tz = pytz.timezone("Europe/Moscow")
+    now = datetime.now(moscow_tz)
+
+    # Define reset time (07:00 MSK)
+    reset_time = time(hour=7, minute=0)
+
+    # If current time is before 07:00, use yesterday's date
+    if now.time() < reset_time:
+        # Still in previous activity day
+        from datetime import timedelta
+
+        yesterday = now - timedelta(days=1)
+        date = yesterday.strftime("%Y-%m-%d")
+        logger.debug(
+            f"Before reset time ({now.time()} < 07:00) - using activity date: {date}"
+        )
+    else:
+        # In current activity day
+        date = now.strftime("%Y-%m-%d")
+        logger.debug(
+            f"After reset time ({now.time()} >= 07:00) - using activity date: {date}"
+        )
+
+    return date
+
+
+def get_actual_date() -> str:
+    """
+    Get the actual calendar date in Moscow timezone (for reset task).
+    Always returns the current calendar date regardless of time.
+    """
     moscow_tz = pytz.timezone("Europe/Moscow")
     date = datetime.now(moscow_tz).strftime("%Y-%m-%d")
     return date
