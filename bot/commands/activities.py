@@ -1,5 +1,5 @@
 # bonus_points_bot/bot/commands/activities.py
-"""Activities command module with persistent dashboard support."""
+"""Activities command module with persistent dashboard support - ONE dashboard per user."""
 
 import asyncio
 import logging
@@ -26,6 +26,7 @@ _MAX_CACHE_SIZE = 200
 # ============================================================================
 # UX IMPROVEMENT: Track activities messages for dynamic updates
 # WITH PERSISTENCE: Now also saved to database
+# ONE DASHBOARD PER USER: Old dashboards are deleted when creating new ones
 # ============================================================================
 
 _activities_messages = {}  # user_id -> {"message": message, "channel": channel, "timestamp": datetime}
@@ -76,6 +77,26 @@ async def _delete_message_after_delay(message, delay=10):
         logger.debug(f"Failed to delete message: {e}")
     except Exception as e:
         logger.error(f"Unexpected error deleting message: {e}", exc_info=True)
+
+
+async def _delete_old_dashboard(
+    bot: discord.Client, user_id: int, channel_id: int, message_id: int
+):
+    """Delete an old dashboard message."""
+    try:
+        channel = bot.get_channel(channel_id)
+        if channel is None:
+            channel = await bot.fetch_channel(channel_id)
+
+        message = await channel.fetch_message(message_id)
+        await message.delete()
+        logger.info(f"Deleted old dashboard for user {user_id} (msg: {message_id})")
+    except discord.NotFound:
+        logger.debug(f"Old dashboard message {message_id} already deleted")
+    except discord.Forbidden:
+        logger.warning(f"No permission to delete old dashboard message {message_id}")
+    except Exception as e:
+        logger.error(f"Error deleting old dashboard: {e}", exc_info=True)
 
 
 async def _restore_dashboards_from_db(bot: discord.Client, db: Database):
@@ -199,7 +220,7 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
 
     @tree.command(name="activities", description="Показать все активности и прогресс")
     async def activities_command(interaction: discord.Interaction):
-        """Show activities dashboard (one per user, persistent)."""
+        """Show activities dashboard (ONE per user, persistent)."""
         user_id = interaction.user.id
 
         # Clean up expired message cache entries
@@ -235,51 +256,69 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
 
                 except (discord.NotFound, discord.Forbidden) as e:
                     logger.info(
-                        f"Previous dashboard for user {user_id} is no longer accessible ({type(e).__name__}), creating new one"
+                        f"Previous dashboard for user {user_id} is no longer accessible ({type(e).__name__}), will create new one"
                     )
+                    # Clean up memory cache
                     del _activities_messages[user_id]
+                    # Don't delete from DB yet - we'll handle that below
+
+            # Check database for saved dashboard
+            saved_dashboard = db.get_dashboard_message(user_id)
+
+            if saved_dashboard:
+                channel_id, message_id = saved_dashboard
+
+                try:
+                    channel = interaction.client.get_channel(channel_id)
+                    if channel is None:
+                        channel = await interaction.client.fetch_channel(channel_id)
+
+                    message = await channel.fetch_message(message_id)
+
+                    # Message exists! Restore it to memory and update it
+                    _activities_messages[user_id] = {
+                        "message": message,
+                        "channel": channel,
+                        "timestamp": datetime.now(),
+                    }
+
+                    embed = create_activities_embed(db, user_id)
+                    await message.edit(embed=embed)
+
+                    await interaction.followup.send(
+                        f"Восстановлена и обновлена ваша панель активностей: {message.jump_url}",
+                        ephemeral=True,
+                    )
+                    logger.info(
+                        f"Restored dashboard for user {user_id} from DB (msg: {message_id})"
+                    )
+                    return
+
+                except (discord.NotFound, discord.Forbidden):
+                    logger.info(
+                        f"Saved dashboard for user {user_id} no longer accessible, deleting and creating new one"
+                    )
+                    # Try to delete the old message if we can access it
+                    await _delete_old_dashboard(
+                        interaction.client, user_id, channel_id, message_id
+                    )
+                    # Clean up database reference
                     db.delete_dashboard_message(user_id)
 
-            else:
-                # Check database for saved dashboard
-                saved_dashboard = db.get_dashboard_message(user_id)
+            # No existing dashboard found OR old one was inaccessible
+            # Delete any old dashboard from DB before creating new one
+            old_dashboard = db.get_dashboard_message(user_id)
+            if old_dashboard:
+                old_channel_id, old_message_id = old_dashboard
+                logger.info(
+                    f"Deleting old dashboard for user {user_id} before creating new one"
+                )
+                await _delete_old_dashboard(
+                    interaction.client, user_id, old_channel_id, old_message_id
+                )
+                db.delete_dashboard_message(user_id)
 
-                if saved_dashboard:
-                    channel_id, message_id = saved_dashboard
-
-                    try:
-                        channel = interaction.client.get_channel(channel_id)
-                        if channel is None:
-                            channel = await interaction.client.fetch_channel(channel_id)
-
-                        message = await channel.fetch_message(message_id)
-
-                        # Message exists! Restore it to memory and update it
-                        _activities_messages[user_id] = {
-                            "message": message,
-                            "channel": channel,
-                            "timestamp": datetime.now(),
-                        }
-
-                        embed = create_activities_embed(db, user_id)
-                        await message.edit(embed=embed)
-
-                        await interaction.followup.send(
-                            f"Восстановлена и обновлена ваша панель активностей: {message.jump_url}",
-                            ephemeral=True,
-                        )
-                        logger.info(
-                            f"Restored dashboard for user {user_id} from DB (msg: {message_id})"
-                        )
-                        return
-
-                    except (discord.NotFound, discord.Forbidden):
-                        logger.info(
-                            f"Saved dashboard for user {user_id} no longer accessible, creating new one"
-                        )
-                        db.delete_dashboard_message(user_id)
-
-            # No existing dashboard found, create a new one
+            # Create a new dashboard
             embed = create_activities_embed(db, user_id)
             message = await interaction.followup.send(embed=embed, wait=True)
 
