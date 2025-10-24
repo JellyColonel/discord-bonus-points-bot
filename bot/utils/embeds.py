@@ -14,7 +14,6 @@ def create_activities_embed(db, user_id):
     """
     # Import helper for BP calculation
     from bot.data import get_activity_by_id, get_all_activities
-    from bot.utils.helpers import calculate_bp
 
     # Use single connection for all queries
     conn = db.get_connection()
@@ -67,18 +66,23 @@ def create_activities_embed(db, user_id):
     completed_count = len(completed_activities)
     uncompleted_count = TOTAL_ACTIVITIES - completed_count
 
+    # Pre-calculate BP multiplier ONCE (instead of 41 DB queries!)
+    bp_multiplier = 2 if event_active else 1
+
     # Calculate earned BP today
     earned_today = 0
     for activity_id in completed_activities:
         activity = get_activity_by_id(activity_id)
         if activity:
-            earned_today += calculate_bp(activity, vip_status, db)
+            base_bp = activity["bp_vip"] if vip_status else activity["bp"]
+            earned_today += base_bp * bp_multiplier
 
     # Calculate remaining BP (from uncompleted activities)
     remaining_bp = 0
     for activity in get_all_activities():
         if activity["id"] not in completed_activities:
-            remaining_bp += calculate_bp(activity, vip_status, db)
+            base_bp = activity["bp_vip"] if vip_status else activity["bp"]
+            remaining_bp += base_bp * bp_multiplier
 
     # Build description with clean sectioned layout
     event_status = "\n🎉 **×2 BP Событие активно!**" if event_active else ""
@@ -94,9 +98,6 @@ def create_activities_embed(db, user_id):
         ),
         color=discord.Color.gold() if event_active else discord.Color.blue(),
     )
-
-    # Pre-calculate BP multiplier ONCE
-    bp_multiplier = 2 if event_active else 1
 
     # Count activities added
     total_added = 0
