@@ -156,10 +156,25 @@ async def _update_activities_message(db: Database, user_id: int):
 
     dashboard_data = _activities_messages[user_id]
     message = dashboard_data["message"]
+    channel = dashboard_data["channel"]
 
     try:
         embed = create_activities_embed(db, user_id)
-        await message.edit(embed=embed)
+
+        # Try to edit the message
+        try:
+            await message.edit(embed=embed)
+        except discord.HTTPException as e:
+            # If we get a webhook token error, re-fetch the message as a regular message
+            if e.code == 50027:  # Invalid Webhook Token
+                logger.debug(
+                    f"Webhook token expired for user {user_id}, re-fetching message"
+                )
+                message = await channel.fetch_message(message.id)
+                dashboard_data["message"] = message
+                await message.edit(embed=embed)
+            else:
+                raise
 
         # Update timestamp on successful update
         dashboard_data["timestamp"] = datetime.now()
@@ -170,8 +185,8 @@ async def _update_activities_message(db: Database, user_id: int):
         del _activities_messages[user_id]
         db.delete_dashboard_message(user_id)
 
-    except discord.Forbidden:
-        logger.warning(f"No permission to update dashboard for user {user_id}")
+    except discord.Forbidden as e:
+        logger.warning(f"No permission to access dashboard for user {user_id}: {e}")
         del _activities_messages[user_id]
         db.delete_dashboard_message(user_id)
 
@@ -218,9 +233,9 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
                     )
                     return
 
-                except discord.NotFound:
+                except (discord.NotFound, discord.Forbidden) as e:
                     logger.info(
-                        f"Previous dashboard for user {user_id} was deleted, creating new one"
+                        f"Previous dashboard for user {user_id} is no longer accessible ({type(e).__name__}), creating new one"
                     )
                     del _activities_messages[user_id]
                     db.delete_dashboard_message(user_id)
