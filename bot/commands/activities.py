@@ -258,7 +258,10 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
     """Setup activities-related commands."""
 
     @tree.command(name="activities", description="Показать все активности и прогресс")
-    async def activities_command(interaction: discord.Interaction):
+    @app_commands.describe(force_new="Создать новую панель (игнорировать существующую)")
+    async def activities_command(
+        interaction: discord.Interaction, force_new: bool = False
+    ):
         """Show activities dashboard (ONE per user, persistent)."""
         user_id = interaction.user.id
 
@@ -268,6 +271,45 @@ def setup_activity_commands(tree: app_commands.CommandTree, db: Database, config
         await interaction.response.defer(ephemeral=False)
 
         try:
+            # === FORCE NEW: Create fresh dashboard, delete old one ===
+            if force_new:
+                # Delete old dashboard if exists
+                old_dashboard = db.get_dashboard_message(user_id)
+                if old_dashboard:
+                    old_channel_id, old_message_id = old_dashboard
+                    logger.info(
+                        f"Force creating new dashboard for user {user_id}, deleting old one"
+                    )
+                    await _delete_old_dashboard(
+                        interaction.client, user_id, old_channel_id, old_message_id
+                    )
+                    db.delete_dashboard_message(user_id)
+
+                # Clean memory cache
+                if user_id in _activities_messages:
+                    del _activities_messages[user_id]
+
+                # Create new dashboard directly
+                embed = create_activities_embed(db, user_id)
+                message = await interaction.followup.send(embed=embed, wait=True)
+
+                # Save to memory
+                _activities_messages[user_id] = {
+                    "message": message,
+                    "channel": interaction.channel,
+                    "timestamp": datetime.now(),
+                }
+
+                # Save to database for persistence
+                db.save_dashboard_message(user_id, interaction.channel_id, message.id)
+
+                logger.info(
+                    f"Force-created new dashboard for user {user_id} "
+                    f"(channel: {interaction.channel_id}, msg: {message.id})"
+                )
+                return
+            # === END FORCE NEW ===
+
             # Check if user already has a dashboard in memory
             if user_id in _activities_messages:
                 dashboard_data = _activities_messages[user_id]
