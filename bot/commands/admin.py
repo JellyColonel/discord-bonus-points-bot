@@ -49,6 +49,33 @@ def setup_admin_commands(tree, db, config):
 
             await interaction.response.send_message(embed=embed)
             logger.info(f"Admin {interaction.user.id} toggled event to {enabled}")
+
+            # Update all active dashboards (event status affects BP values)
+            try:
+                from bot.commands.activities import (
+                    _activities_messages,
+                    _update_activities_message,
+                )
+
+                if _activities_messages:
+                    logger.info(
+                        f"Updating {len(_activities_messages)} dashboards after event toggle..."
+                    )
+                    updated_count = 0
+                    user_ids = list(_activities_messages.keys())
+
+                    for user_id in user_ids:
+                        try:
+                            await _update_activities_message(db, user_id)
+                            updated_count += 1
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to update dashboard for user {user_id}: {e}"
+                            )
+
+                    logger.info(f"Updated {updated_count}/{len(user_ids)} dashboards")
+            except Exception as e:
+                logger.error(f"Error updating dashboards after event toggle: {e}")
         except Exception as e:
             logger.error(f"Error in toggleevent command: {e}", exc_info=True)
             await interaction.response.send_message(

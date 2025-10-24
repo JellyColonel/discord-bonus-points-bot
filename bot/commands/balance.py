@@ -1,6 +1,7 @@
 # bonus_points_bot/bot/commands/balance.py
 """Balance-related commands."""
 
+import asyncio
 import logging
 
 import discord
@@ -11,6 +12,20 @@ from bot.data import TOTAL_ACTIVITIES, get_activity_by_id
 from bot.utils.helpers import calculate_bp, is_event_active
 
 logger = logging.getLogger(__name__)
+
+
+async def _delete_message_after_delay(message, delay=10):
+    """Delete a message after specified delay in seconds."""
+    try:
+        await asyncio.sleep(delay)
+        await message.delete()
+    except discord.NotFound:
+        # Message already deleted
+        pass
+    except discord.HTTPException as e:
+        logger.debug(f"Failed to delete message: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting message: {e}", exc_info=True)
 
 
 def setup_balance_commands(tree, db, config):
@@ -76,6 +91,14 @@ def setup_balance_commands(tree, db, config):
                 ephemeral=True,
             )
             logger.info(f"User {interaction.user.id} set balance to {amount}")
+
+            # Update dashboard if it exists (balance is shown in dashboard)
+            try:
+                from bot.commands.activities import _update_activities_message
+
+                await _update_activities_message(db, interaction.user.id)
+            except Exception as e:
+                logger.debug(f"Could not update dashboard after setbalance: {e}")
         except Exception as e:
             logger.error(
                 f"Error in setbalance command for user {interaction.user.id}: {e}",
@@ -113,7 +136,7 @@ def setup_balance_commands(tree, db, config):
                 description=(
                     f"**Заработано сегодня: {total_bp} BP**\n"
                     f"**Текущий баланс: {balance} BP**\n\n"
-                    f"Выполнено активностей: {len(completed_activities)}/{len(TOTAL_ACTIVITIES)}\n"
+                    f"Выполнено активностей: {len(completed_activities)}/{TOTAL_ACTIVITIES}\n"
                     f"VIP статус: {'✅' if vip_status else '❌'}{event_status}"
                 ),
                 color=discord.Color.gold()
@@ -123,7 +146,12 @@ def setup_balance_commands(tree, db, config):
 
             embed.set_footer(text="Используйте /help для списка всех команд")
 
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            # Send as non-ephemeral and schedule deletion after 10 seconds
+            await interaction.response.send_message(embed=embed, ephemeral=False)
+
+            # Get the message and schedule deletion
+            response_message = await interaction.original_response()
+            asyncio.create_task(_delete_message_after_delay(response_message, 10))
         except Exception as e:
             logger.error(
                 f"Error in total command for user {interaction.user.id}: {e}",
@@ -144,6 +172,14 @@ def setup_balance_commands(tree, db, config):
                 ephemeral=True,
             )
             logger.info(f"User {interaction.user.id} set VIP status to {status}")
+
+            # Update dashboard if it exists (VIP status affects BP values)
+            try:
+                from bot.commands.activities import _update_activities_message
+
+                await _update_activities_message(db, interaction.user.id)
+            except Exception as e:
+                logger.debug(f"Could not update dashboard after setvip: {e}")
         except Exception as e:
             logger.error(
                 f"Error in setvip command for user {interaction.user.id}: {e}",

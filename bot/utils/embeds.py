@@ -1,16 +1,16 @@
 # bonus_points_bot/bot/utils/embeds.py
-"""Embed creation utilities - OPTIMIZED VERSION"""
+"""Embed creation utilities - Shows only uncompleted activities with balance"""
 
 import discord
 
 from bot.core.database import get_today_date
-from bot.data import ACTIVITIES
+from bot.data import ACTIVITIES, TOTAL_ACTIVITIES
 
 
 def create_activities_embed(db, user_id):
     """
-    Create embed showing all activities.
-    OPTIMIZED: Batched database queries in single connection.
+    Create embed showing only uncompleted activities.
+    Shows current balance and progress counter.
     """
     # Use single connection for all queries
     conn = db.get_connection()
@@ -59,37 +59,48 @@ def create_activities_embed(db, user_id):
     finally:
         conn.close()
 
-    # Build embed
-    event_status = "🎉 **СОБЫТИЕ: x2 BP!**" if event_active else ""
+    # Build embed - count uncompleted and completed activities
+    completed_count = len(completed_activities)
+    uncompleted_count = TOTAL_ACTIVITIES - completed_count
+
+    # Build description with balance and progress
+    event_status = "\n🎉 **СОБЫТИЕ: x2 BP активно!**" if event_active else ""
 
     embed = discord.Embed(
-        title="📊 Статус Бонусных Активностей",
+        title="📋 Оставшиеся Активности",
         description=(
-            f"**Баланс: {balance} BP**\n"
+            f"💰 **Баланс: {balance} BP**\n"
             f"VIP Статус: {'✅ Активен' if vip_status else '❌ Неактивен'}\n"
-            f"{event_status}"
+            f"Прогресс: {completed_count}/{TOTAL_ACTIVITIES} выполнено | Осталось: {uncompleted_count}{event_status}"
         ),
         color=discord.Color.gold() if event_active else discord.Color.blue(),
     )
 
-    # Pre-calculate BP multiplier ONCE instead of 41 times
+    # Pre-calculate BP multiplier ONCE
     bp_multiplier = 2 if event_active else 1
 
+    # Count activities added
+    total_added = 0
+
     for category, activities in ACTIVITIES.items():
-        # Build category text
+        # Build category text - ONLY UNCOMPLETED activities
         MAX_FIELD_LENGTH = 1000
         category_text = ""
         field_number = 1
 
         for activity in activities:
             completed = activity["id"] in completed_activities  # O(1) lookup
-            status = "✅" if completed else "❌"
 
-            # Calculate BP directly (no helper function calls)
+            # Skip completed activities - they disappear from the list!
+            if completed:
+                continue
+
+            # Calculate BP
             base_bp = activity["bp_vip"] if vip_status else activity["bp"]
             points = base_bp * bp_multiplier
 
-            activity_line = f"{status} {activity['name']} - **{points} BP**\n"
+            # No status emoji - just show the uncompleted activity
+            activity_line = f"{activity['name']} - **{points} BP**\n"
 
             # Check if adding this would exceed field limit
             if len(category_text) + len(activity_line) > MAX_FIELD_LENGTH:
@@ -103,11 +114,21 @@ def create_activities_embed(db, user_id):
             else:
                 category_text += activity_line
 
-        # Add remaining text
+            total_added += 1
+
+        # Add remaining text for this category (only if there are uncompleted activities)
         if category_text:
             field_name = (
                 f"{category} ({field_number})" if field_number > 1 else category
             )
             embed.add_field(name=field_name, value=category_text, inline=False)
+
+    # If all activities completed, show celebration message
+    if total_added == 0:
+        embed.add_field(
+            name="🎉 Все активности выполнены!",
+            value="Отличная работа! Возвращайтесь завтра за новыми активностями.",
+            inline=False,
+        )
 
     return embed
