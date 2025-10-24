@@ -10,8 +10,12 @@ from bot.data import ACTIVITIES, TOTAL_ACTIVITIES
 def create_activities_embed(db, user_id):
     """
     Create embed showing only uncompleted activities.
-    Shows current balance and progress counter.
+    Shows current balance and progress counter with BP earned/remaining.
     """
+    # Import helper for BP calculation
+    from bot.data import get_activity_by_id, get_all_activities
+    from bot.utils.helpers import calculate_bp
+
     # Use single connection for all queries
     conn = db.get_connection()
     cursor = conn.cursor()
@@ -63,15 +67,30 @@ def create_activities_embed(db, user_id):
     completed_count = len(completed_activities)
     uncompleted_count = TOTAL_ACTIVITIES - completed_count
 
-    # Build description with balance and progress
-    event_status = "\n🎉 **СОБЫТИЕ: x2 BP активно!**" if event_active else ""
+    # Calculate earned BP today
+    earned_today = 0
+    for activity_id in completed_activities:
+        activity = get_activity_by_id(activity_id)
+        if activity:
+            earned_today += calculate_bp(activity, vip_status, db)
+
+    # Calculate remaining BP (from uncompleted activities)
+    remaining_bp = 0
+    for activity in get_all_activities():
+        if activity["id"] not in completed_activities:
+            remaining_bp += calculate_bp(activity, vip_status, db)
+
+    # Build description with clean sectioned layout
+    event_status = "\n🎉 **×2 BP Событие активно!**" if event_active else ""
 
     embed = discord.Embed(
         title="📋 Оставшиеся Активности",
         description=(
-            f"💰 **Баланс: {balance} BP**\n"
-            f"VIP Статус: {'✅ Активен' if vip_status else '❌ Неактивен'}\n"
-            f"Прогресс: {completed_count}/{TOTAL_ACTIVITIES} выполнено | Осталось: {uncompleted_count}{event_status}"
+            f"💰 **Баланс:** {balance} BP\n\n"
+            f"📊 **Прогресс**\n"
+            f"• Выполнено {completed_count} / {TOTAL_ACTIVITIES} (осталось {uncompleted_count})\n"
+            f"• Заработано {earned_today} BP  |  Осталось {remaining_bp} BP\n\n"
+            f"⭐ **VIP:** {'✅ Активен' if vip_status else '❌ Неактивен'}{event_status}"
         ),
         color=discord.Color.gold() if event_active else discord.Color.blue(),
     )
