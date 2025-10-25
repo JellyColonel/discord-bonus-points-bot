@@ -94,15 +94,19 @@ def create_activities_embed(db, user_id):
             f"📊 **Прогресс**\n"
             f"• Выполнено {completed_count} / {TOTAL_ACTIVITIES} (осталось {uncompleted_count})\n"
             f"• Заработано {earned_today} BP  |  Осталось {remaining_bp} BP\n\n"
-            f"⭐ **VIP:** {'✅ Активен' if vip_status else '❌ Неактивен'}{event_status}"
+            f"⭐ **VIP:** {'✅ Активен' if vip_status else '❌ Неактивен'}{event_status}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━"
         ),
         color=discord.Color.gold() if event_active else discord.Color.blue(),
     )
 
     # Count activities added
     total_added = 0
+    categories_list = list(ACTIVITIES.items())
 
-    for category, activities in ACTIVITIES.items():
+    for category_index, (category, activities) in enumerate(categories_list):
+        is_last_category = category_index == len(categories_list) - 1
+
         # Build category text - ONLY UNCOMPLETED activities
         MAX_FIELD_LENGTH = 1000
         category_text = ""
@@ -142,6 +146,14 @@ def create_activities_embed(db, user_id):
                 f"{category} ({field_number})" if field_number > 1 else category
             )
             embed.add_field(name=field_name, value=category_text, inline=False)
+
+            # Add empty field as visual separator between categories (except after last category)
+            if not is_last_category:
+                embed.add_field(
+                    name="\u200b",  # Zero-width space (invisible field name)
+                    value="",  # Zero-width space (invisible content)
+                    inline=False,
+                )
 
     # If all activities completed, show celebration message
     if total_added == 0:
