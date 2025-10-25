@@ -95,7 +95,7 @@ def create_activities_embed(db, user_id):
             f"• Выполнено {completed_count} / {TOTAL_ACTIVITIES} (осталось {uncompleted_count})\n"
             f"• Заработано {earned_today} BP  |  Осталось {remaining_bp} BP\n\n"
             f"⭐ **VIP:** {'✅ Активен' if vip_status else '❌ Неактивен'}{event_status}\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━"
+            f"─────────────────────"
         ),
         color=discord.Color.gold() if event_active else discord.Color.blue(),
     )
@@ -147,13 +147,28 @@ def create_activities_embed(db, user_id):
             )
             embed.add_field(name=field_name, value=category_text, inline=False)
 
-            # Add empty field as visual separator between categories (except after last category)
+            # Add empty field as visual separator between categories ONLY if:
+            # 1. This is not the last category
+            # 2. There are uncompleted activities in the NEXT category
             if not is_last_category:
-                embed.add_field(
-                    name="\u200b",  # Zero-width space (invisible field name)
-                    value="",
-                    inline=False,
+                # Check if next category has any uncompleted activities
+                next_category_index = category_index + 1
+                next_category_name, next_activities = categories_list[
+                    next_category_index
+                ]
+
+                has_next_uncompleted = any(
+                    activity["id"] not in completed_activities
+                    for activity in next_activities
                 )
+
+                # Only add separator if next category has uncompleted activities
+                if has_next_uncompleted:
+                    embed.add_field(
+                        name="\u200b",  # Zero-width space (invisible field name)
+                        value="",
+                        inline=False,
+                    )
 
     # If all activities completed, show celebration message
     if total_added == 0:
