@@ -2,10 +2,8 @@
 """Admin commands module."""
 
 import logging
-from datetime import datetime, timedelta
 
 import discord
-import pytz
 from discord import app_commands
 
 from bot.utils.helpers import has_admin_role, is_event_active
@@ -123,69 +121,3 @@ def setup_admin_commands(tree, db, config):
                 )
             except discord.HTTPException:
                 pass
-
-    @tree.command(name="testreset", description="[ADMIN] Test daily reset manually")
-    async def testreset_command(interaction: discord.Interaction):
-        try:
-            # Check admin permissions
-            if not has_admin_role(interaction, config):
-                await interaction.response.send_message(
-                    "❌ У вас нет прав для использования этой команды!", ephemeral=True
-                )
-                return
-
-            await interaction.response.defer(ephemeral=True)
-
-            logger.info(f"Manual reset triggered by admin {interaction.user.id}")
-
-            conn = db.get_connection()
-            cursor = conn.cursor()
-
-            today = datetime.now(pytz.timezone("Europe/Moscow")).strftime("%Y-%m-%d")
-
-            cursor.execute(
-                """
-                UPDATE activities 
-                SET completed = 0 
-                WHERE date = ?
-            """,
-                (today,),
-            )
-
-            reset_count = cursor.rowcount
-
-            cutoff_date = (
-                datetime.now(pytz.timezone("Europe/Moscow")) - timedelta(days=30)
-            ).strftime("%Y-%m-%d")
-            cursor.execute("DELETE FROM activities WHERE date < ?", (cutoff_date,))
-
-            deleted = cursor.rowcount
-            conn.commit()
-            conn.close()
-
-            await interaction.followup.send(
-                f"✅ Сброс выполнен успешно!\n"
-                f"Сброшено активностей: {reset_count}\n"
-                f"Удалено старых записей: {deleted}",
-                ephemeral=True,
-            )
-            logger.info(
-                f"Manual reset complete - reset {reset_count} activities, deleted {deleted} old records"
-            )
-        except Exception as e:
-            logger.error(f"Error in testreset command: {e}", exc_info=True)
-            try:
-                await interaction.followup.send(
-                    f"❌ Ошибка при сбросе: {e}", ephemeral=True
-                )
-            except discord.HTTPException:
-                # If followup fails, try response
-                try:
-                    await interaction.response.send_message(
-                        f"❌ Ошибка при сбросе: {e}", ephemeral=True
-                    )
-                except discord.HTTPException:
-                    # Both failed, just log it
-                    logger.error(
-                        f"Could not send error message to user {interaction.user.id}"
-                    )
