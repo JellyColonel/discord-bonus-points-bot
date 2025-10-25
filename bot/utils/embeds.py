@@ -151,7 +151,7 @@ def create_activities_embed(db, user_id):
             if not is_last_category:
                 embed.add_field(
                     name="\u200b",  # Zero-width space (invisible field name)
-                    value="",  # Zero-width space (invisible content)
+                    value="",
                     inline=False,
                 )
 

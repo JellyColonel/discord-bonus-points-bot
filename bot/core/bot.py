@@ -3,10 +3,9 @@
 
 import asyncio
 import logging
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 import discord
-import pytz
 from discord.ext import tasks
 
 from bot.commands import setup_all_commands
@@ -173,9 +172,9 @@ class BonusPointsBot(discord.Client):
         except Exception as e:
             logger.error(f"Error updating dashboards: {e}", exc_info=True)
 
-    @tasks.loop(time=time(hour=7, minute=0, tzinfo=pytz.timezone("Europe/Moscow")))
+    @tasks.loop(time=time(hour=4, minute=0, tzinfo=timezone.utc))
     async def daily_reset(self):
-        """Daily reset task - resets all activities to incomplete."""
+        """Daily reset task - resets all activities to incomplete at 04:00 UTC (07:00 MSK)."""
         logger.info("=" * 80)
         logger.info("🔄 DAILY RESET STARTING")
         logger.info("=" * 80)
@@ -185,7 +184,7 @@ class BonusPointsBot(discord.Client):
             cursor = conn.cursor()
 
             # Get today's date
-            today = datetime.now(pytz.timezone("Europe/Moscow")).strftime("%Y-%m-%d")
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             logger.info(f"Reset date: {today}")
 
             # Set all today's activities to incomplete (0)
@@ -202,9 +201,9 @@ class BonusPointsBot(discord.Client):
             logger.info(f"✅ Reset {reset_count} activity records to incomplete")
 
             # Optional: Delete old records (keep last 30 days for history)
-            cutoff_date = (
-                datetime.now(pytz.timezone("Europe/Moscow")) - timedelta(days=30)
-            ).strftime("%Y-%m-%d")
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime(
+                "%Y-%m-%d"
+            )
             cursor.execute("DELETE FROM activities WHERE date < ?", (cutoff_date,))
 
             deleted = cursor.rowcount

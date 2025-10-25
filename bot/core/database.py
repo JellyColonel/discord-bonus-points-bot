@@ -3,10 +3,8 @@
 
 import logging
 import sqlite3
-from datetime import datetime, time
+from datetime import datetime, time, timedelta, timezone
 from typing import List, Optional, Tuple
-
-import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -378,46 +376,36 @@ class Database:
 
 def get_today_date() -> str:
     """
-    Get today's date in Moscow timezone.
+    Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
-    FIXED: Returns the "activity day" which continues until 07:00 MSK.
-    - From 00:00 to 06:59 MSK → Returns YESTERDAY's date (activities still valid)
-    - From 07:00 to 23:59 MSK → Returns TODAY's date (new activity day)
+    Returns the "activity day" which continues until 04:00 UTC:
+    - From 00:00 to 03:59 UTC → Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC → Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
-    between 00:00-07:00 before the actual daily reset runs.
+    between 00:00-04:00 UTC before the actual daily reset runs.
     """
-    moscow_tz = pytz.timezone("Europe/Moscow")
-    now = datetime.now(moscow_tz)
+    now = datetime.now(timezone.utc)
+    reset_time_utc = time(hour=4, minute=0)  # 07:00 MSK = 04:00 UTC
 
-    # Define reset time (07:00 MSK)
-    reset_time = time(hour=7, minute=0)
-
-    # If current time is before 07:00, use yesterday's date
-    if now.time() < reset_time:
+    if now.time() < reset_time_utc:
         # Still in previous activity day
-        from datetime import timedelta
-
         yesterday = now - timedelta(days=1)
         date = yesterday.strftime("%Y-%m-%d")
         logger.debug(
-            f"Before reset time ({now.time()} < 07:00) - using activity date: {date}"
+            f"Before reset time ({now.time()} < 04:00 UTC / 07:00 MSK) - using activity date: {date}"
         )
     else:
         # In current activity day
         date = now.strftime("%Y-%m-%d")
         logger.debug(
-            f"After reset time ({now.time()} >= 07:00) - using activity date: {date}"
+            f"After reset time ({now.time()} >= 04:00 UTC / 07:00 MSK) - using activity date: {date}"
         )
 
     return date
 
 
 def get_actual_date() -> str:
-    """
-    Get the actual calendar date in Moscow timezone (for reset task).
-    Always returns the current calendar date regardless of time.
-    """
-    moscow_tz = pytz.timezone("Europe/Moscow")
-    date = datetime.now(moscow_tz).strftime("%Y-%m-%d")
+    """Get the actual calendar date in UTC."""
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return date
