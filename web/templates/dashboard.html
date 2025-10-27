@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Bonus Points{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Stats Header -->
+    <div class="stats-header">
+        <div class="stat-card">
+            <h3>💰 Balance</h3>
+            <p class="stat-value" id="balance-display">{{ balance }}</p>
+            <span class="stat-label">BP</span>
+        </div>
+        
+        <div class="stat-card">
+            <h3>📊 Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
+            </div>
+            <p class="stat-value">{{ completed_count }} / {{ total_activities }}</p>
+        </div>
+        
+        <div class="stat-card">
+            <h3>✨ Earned Today</h3>
+            <p class="stat-value earned" id="earned-display">{{ total_earned }}</p>
+            <span class="stat-label">BP</span>
+        </div>
+        
+        <div class="stat-card">
+            <h3>🎯 Remaining</h3>
+            <p class="stat-value remaining" id="remaining-display">{{ total_remaining }}</p>
+            <span class="stat-label">BP</span>
+        </div>
+    </div>
+
+    <!-- Status Badges -->
+    <div class="status-badges">
+        <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge">
+            {% if vip_status %}⭐ VIP Active{% else %}VIP Inactive{% endif %}
+        </div>
+        {% if event_active %}
+        <div class="badge badge-event">🎉 x2 BP Event Active!</div>
+        {% endif %}
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <div class="control-group">
+            <label for="balance-input">Set Balance:</label>
+            <input type="number" id="balance-input" placeholder="Enter amount" min="0" max="1000000">
+            <button onclick="setBalance()" class="btn btn-primary">Update</button>
+        </div>
+        
+        <div class="control-group">
+            <button onclick="toggleVIP()" class="btn btn-secondary" id="vip-toggle-btn">
+                Toggle VIP Status
+            </button>
+        </div>
+    </div>
+
+    <!-- Activities by Category -->
+    {% for category, category_activities in activities.items() %}
+    <div class="activity-category">
+        <h2 class="category-title">{{ category }}</h2>
+        <div class="activity-grid">
+            {% for activity in category_activities %}
+            <div class="activity-card {% if activity.completed %}completed{% endif %}" 
+                 data-activity-id="{{ activity.id }}">
+                <div class="activity-header">
+                    <input type="checkbox" 
+                           id="activity-{{ activity.id }}" 
+                           {% if activity.completed %}checked{% endif %}
+                           onchange="toggleActivity('{{ activity.id }}', this.checked)">
+                    <label for="activity-{{ activity.id }}">
+                        {{ activity.name }}
+                    </label>
+                </div>
+                <div class="activity-bp">
+                    <span class="bp-value">{{ activity.bp_value }} BP</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
