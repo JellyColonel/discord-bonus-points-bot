@@ -58,31 +58,96 @@
         </div>
     </div>
 
-    <!-- Activities by Category -->
-    {% for category, category_activities in activities.items() %}
-    <div class="activity-category">
-        <h2 class="category-title">{{ category }}</h2>
-        <div class="activity-grid">
-            {% for activity in category_activities %}
-            <div class="activity-card {% if activity.completed %}completed{% endif %}" 
-                 data-activity-id="{{ activity.id }}">
-                <div class="activity-header">
-                    <input type="checkbox" 
-                           id="activity-{{ activity.id }}" 
-                           {% if activity.completed %}checked{% endif %}
-                           onchange="toggleActivity('{{ activity.id }}', this.checked)">
-                    <label for="activity-{{ activity.id }}">
-                        {{ activity.name }}
-                    </label>
-                </div>
-                <div class="activity-bp">
-                    <span class="bp-value">{{ activity.bp_value }} BP</span>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+    <!-- Activity Tabs -->
+    <div class="activity-tabs">
+        <button class="tab-btn active" onclick="switchTab('active')" data-tab="active">
+            ✨ Active Activities
+            <span class="tab-count" id="active-count">{{ total_activities - completed_count }}</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('completed')" data-tab="completed">
+            ✅ Completed
+            <span class="tab-count" id="completed-count">{{ completed_count }}</span>
+        </button>
     </div>
-    {% endfor %}
+
+    <!-- Active Activities Tab -->
+    <div class="tab-content active" id="active-tab">
+        {% for category, category_activities in activities.items() %}
+        {% set active_activities = category_activities | selectattr('completed', 'equalto', False) | list %}
+        {% if active_activities %}
+        <div class="activity-category" data-category="{{ category }}">
+            <h2 class="category-title">{{ category }}</h2>
+            <div class="activity-grid">
+                {% for activity in active_activities %}
+                <div class="activity-card" 
+                     data-activity-id="{{ activity.id }}"
+                     data-category="{{ category }}">
+                    <div class="activity-header">
+                        <input type="checkbox" 
+                               id="activity-{{ activity.id }}" 
+                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
+                        <label for="activity-{{ activity.id }}">
+                            {{ activity.name }}
+                        </label>
+                    </div>
+                    <div class="activity-bp">
+                        <span class="bp-value">{{ activity.bp_value }} BP</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        
+        {% if completed_count == total_activities %}
+        <div class="empty-state">
+            <div class="empty-icon">🎉</div>
+            <h3>All Activities Completed!</h3>
+            <p>Great job! Check the Completed tab to review or uncheck activities.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Completed Activities Tab -->
+    <div class="tab-content" id="completed-tab">
+        {% for category, category_activities in activities.items() %}
+        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
+        {% if completed_activities %}
+        <div class="activity-category" data-category="{{ category }}">
+            <h2 class="category-title">{{ category }}</h2>
+            <div class="activity-grid">
+                {% for activity in completed_activities %}
+                <div class="activity-card completed" 
+                     data-activity-id="{{ activity.id }}"
+                     data-category="{{ category }}">
+                    <div class="activity-header">
+                        <input type="checkbox" 
+                               id="activity-completed-{{ activity.id }}" 
+                               checked
+                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
+                        <label for="activity-completed-{{ activity.id }}">
+                            {{ activity.name }}
+                        </label>
+                    </div>
+                    <div class="activity-bp">
+                        <span class="bp-value">{{ activity.bp_value }} BP</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        
+        {% if completed_count == 0 %}
+        <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h3>No Completed Activities Yet</h3>
+            <p>Start checking off activities to see them here!</p>
+        </div>
+        {% endif %}
+    </div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay" style="display: none;">

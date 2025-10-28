@@ -3,11 +3,11 @@
 import logging
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
-from flask_session import Session
 
 from bot.core.database import Database, get_today_date
 from bot.data import ACTIVITIES, get_activity_by_id, get_all_activities
 from bot.utils.helpers import calculate_bp, is_event_active
+from flask_session import Session
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth
 from web.config import WebConfig
 
@@ -275,6 +275,74 @@ def api_user_data():
     )
 
 
+@app.route("/api/activity_bp_values", methods=["GET"])
+@require_auth
+def api_activity_bp_values():
+    """Get all activity BP values with current VIP/event status."""
+    user_id = int(session["user"]["id"])
+    today = get_today_date()
+
+    vip_status = db.get_user_vip_status(user_id)
+    completed_activities = set(db.get_user_completed_activities(user_id, today))
+
+    # Calculate BP values for all activities
+    activity_bp_values = {}
+    total_earned = 0
+    total_remaining = 0
+
+    for activity in get_all_activities():
+        bp_value = calculate_bp(activity, vip_status, db)
+        activity_bp_values[activity["id"]] = bp_value
+
+        if activity["id"] in completed_activities:
+            total_earned += bp_value
+        else:
+            total_remaining += bp_value
+
+    return jsonify(
+        {
+            "activities": activity_bp_values,
+            "total_earned": total_earned,
+            "total_remaining": total_remaining,
+        }
+    )
+
+
+@app.route("/api/user_stats", methods=["GET"])
+@require_auth
+def api_user_stats():
+    """Get user statistics (balance, earned, remaining, progress)."""
+    user_id = int(session["user"]["id"])
+    today = get_today_date()
+
+    vip_status = db.get_user_vip_status(user_id)
+    balance = db.get_user_bp_balance(user_id)
+    completed_activities = set(db.get_user_completed_activities(user_id, today))
+
+    total_earned = 0
+    total_remaining = 0
+
+    for activity in get_all_activities():
+        bp_value = calculate_bp(activity, vip_status, db)
+        if activity["id"] in completed_activities:
+            total_earned += bp_value
+        else:
+            total_remaining += bp_value
+
+    total_activities = len(get_all_activities())
+    completed_count = len(completed_activities)
+
+    return jsonify(
+        {
+            "balance": balance,
+            "total_earned": total_earned,
+            "total_remaining": total_remaining,
+            "completed_count": completed_count,
+            "total_activities": total_activities,
+        }
+    )
+
+
 # ============================================================================
 # Run Web Server
 # ============================================================================
@@ -283,7 +351,7 @@ def api_user_data():
 def run_web():
     """Run the Flask web server."""
     logger.info("=" * 80)
-    logger.info("🌐 Starting Web Dashboard...")
+    logger.info("ðŸŒ Starting Web Dashboard...")
     logger.info(f"   Host: {WebConfig.HOST}")
     logger.info(f"   Port: {WebConfig.PORT}")
     logger.info(f"   Database: {WebConfig.DB_PATH}")

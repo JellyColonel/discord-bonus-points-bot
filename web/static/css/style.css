@@ -35,9 +35,11 @@ body {
 
 .container {
     max-width: 1400px;
+    min-width: min(100%, 1400px);
     margin: 0 auto;
     padding: 20px;
     flex: 1;
+    width: 100%;
 }
 
 /* =================================================================
@@ -105,12 +107,12 @@ body {
 }
 
 .btn-secondary {
-    background: var(--surface-light);
+    background: #40444B;
     color: var(--text-primary);
 }
 
 .btn-secondary:hover {
-    background: #40444B;
+    background: #4A4E55;
 }
 
 .btn-discord {
@@ -183,6 +185,7 @@ body {
 
 .dashboard {
     padding: 20px 0;
+    width: 100%;
 }
 
 /* Stats Header */
@@ -287,22 +290,21 @@ body {
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 30px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 24px;
-    flex-wrap: wrap;
 }
 
 .control-group {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex: 1;
-    min-width: 300px;
 }
 
 .control-group label {
     font-weight: 600;
     white-space: nowrap;
+    min-width: 110px;
 }
 
 .control-group input {
@@ -318,6 +320,105 @@ body {
 .control-group input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+/* Activity Tabs */
+.activity-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    margin-bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-count {
+    background: var(--surface-light);
+    color: var(--text-primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+}
+
+.tab-btn.active .tab-count {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    min-height: 400px;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 24px;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-size: 16px;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 /* Activity Categories */
@@ -456,6 +557,8 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 10000;
     animation: slideIn 0.3s ease;
+    min-width: 250px;
+    text-align: center;
 }
 
 .toast.success {
@@ -492,11 +595,39 @@ body {
     }
     
     .controls {
-        flex-direction: column;
+        grid-template-columns: 1fr;
+        padding: 20px;
+        gap: 16px;
     }
     
     .control-group {
         min-width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        background: var(--surface-light);
+        padding: 16px;
+        border-radius: 8px;
+    }
+    
+    .control-group label {
+        min-width: unset;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        margin-bottom: 0;
+    }
+    
+    .control-group input {
+        width: 100%;
+    }
+    
+    .control-group .btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 24px;
+        font-size: 15px;
     }
     
     .activity-grid {
@@ -505,5 +636,69 @@ body {
     
     .login-card {
         padding: 32px 24px;
+    }
+    
+    .activity-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        gap: 8px;
+    }
+    
+    .activity-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .tab-btn {
+        flex-shrink: 0;
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+    
+    .tab-count {
+        font-size: 11px;
+        padding: 2px 6px;
+        min-width: 20px;
+    }
+}
+
+/* Extra small screens (iPhone SE, small Android phones) */
+@media (max-width: 390px) {
+    .container {
+        padding: 12px;
+    }
+    
+    .controls {
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .control-group {
+        padding: 12px;
+    }
+    
+    .tab-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        gap: 6px;
+    }
+    
+    .tab-count {
+        font-size: 10px;
+        padding: 1px 5px;
+        min-width: 18px;
+    }
+    
+    .control-group label {
+        font-size: 12px;
+    }
+    
+    .control-group input,
+    .control-group .btn {
+        font-size: 14px;
+        padding: 10px 16px;
     }
 }
