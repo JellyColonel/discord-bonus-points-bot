@@ -64,9 +64,12 @@ def callback():
         user_info = get_user_info(access_token)
 
         # Store in session
+        # Use global_name (display name) if available, fallback to username
+        display_name = user_info.get("global_name") or user_info["username"]
+
         session["user"] = {
             "id": user_info["id"],
-            "username": user_info["username"],
+            "username": display_name,  # Store display name as username for simplicity
             "discriminator": user_info.get("discriminator", "0"),
             "avatar": user_info.get("avatar"),
             "access_token": access_token,
@@ -105,7 +108,12 @@ def dashboard():
     # Get user data
     vip_status = db.get_user_vip_status(user_id)
     balance = db.get_user_bp_balance(user_id)
-    completed_activities = set(db.get_user_completed_activities(user_id, today))
+    completed_activities_list = db.get_user_completed_activities(
+        user_id, today
+    )  # Keep as list to preserve order
+    completed_activities_set = set(
+        completed_activities_list
+    )  # Also keep as set for fast lookup
     event_active = is_event_active(db)
 
     # Prepare activities by category with completion status
@@ -113,27 +121,39 @@ def dashboard():
     total_earned = 0
     total_remaining = 0
 
+    # Create a lookup dict for all activities by ID
+    all_activities_dict = {}
+    for category, activities in ACTIVITIES.items():
+        for activity in activities:
+            all_activities_dict[activity["id"]] = {**activity, "category": category}
+
     for category, activities in ACTIVITIES.items():
         activities_with_status = []
 
-        for activity in activities:
-            is_completed = activity["id"] in completed_activities
-            bp_value = calculate_bp(activity, vip_status, db)
-
-            if is_completed:
+        # First, add completed activities in database order (most recent first)
+        for activity_id in completed_activities_list:
+            activity = all_activities_dict.get(activity_id)
+            if activity and activity["category"] == category:
+                bp_value = calculate_bp(activity, vip_status, db)
                 total_earned += bp_value
-            else:
-                total_remaining += bp_value
+                activities_with_status.append(
+                    {**activity, "completed": True, "bp_value": bp_value}
+                )
 
-            activities_with_status.append(
-                {**activity, "completed": is_completed, "bp_value": bp_value}
-            )
+        # Then, add uncompleted activities in config order
+        for activity in activities:
+            if activity["id"] not in completed_activities_set:
+                bp_value = calculate_bp(activity, vip_status, db)
+                total_remaining += bp_value
+                activities_with_status.append(
+                    {**activity, "completed": False, "bp_value": bp_value}
+                )
 
         activities_by_category[category] = activities_with_status
 
     # Calculate progress
     total_activities = len(get_all_activities())
-    completed_count = len(completed_activities)
+    completed_count = len(completed_activities_list)
     progress_percentage = (
         int((completed_count / total_activities) * 100) if total_activities > 0 else 0
     )
@@ -351,7 +371,7 @@ def api_user_stats():
 def run_web():
     """Run the Flask web server."""
     logger.info("=" * 80)
-    logger.info("ðŸŒ Starting Web Dashboard...")
+    logger.info("🚀 Starting Web Dashboard...")
     logger.info(f"   Host: {WebConfig.HOST}")
     logger.info(f"   Port: {WebConfig.PORT}")
     logger.info(f"   Database: {WebConfig.DB_PATH}")
