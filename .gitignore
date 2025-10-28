@@ -1,3 +1,6 @@
+# Flask session data
+flask_session/
+
 # Environment variables
 .env
 

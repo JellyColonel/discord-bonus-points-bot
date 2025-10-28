@@ -35,9 +35,11 @@ body {
 
 .container {
     max-width: 1400px;
+    min-width: min(100%, 1400px);
     margin: 0 auto;
     padding: 20px;
     flex: 1;
+    width: 100%;
 }
 
 /* =================================================================
@@ -105,12 +107,12 @@ body {
 }
 
 .btn-secondary {
-    background: var(--surface-light);
+    background: #40444B;
     color: var(--text-primary);
 }
 
 .btn-secondary:hover {
-    background: #40444B;
+    background: #4A4E55;
 }
 
 .btn-discord {
@@ -183,6 +185,7 @@ body {
 
 .dashboard {
     padding: 20px 0;
+    width: 100%;
 }
 
 /* Stats Header */
@@ -374,6 +377,7 @@ body {
 /* Tab Content */
 .tab-content {
     display: none;
+    min-height: 400px;
 }
 
 .tab-content.active {
@@ -592,10 +596,38 @@ body {
     
     .controls {
         grid-template-columns: 1fr;
+        padding: 20px;
+        gap: 16px;
     }
     
     .control-group {
         min-width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        background: var(--surface-light);
+        padding: 16px;
+        border-radius: 8px;
+    }
+    
+    .control-group label {
+        min-width: unset;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        margin-bottom: 0;
+    }
+    
+    .control-group input {
+        width: 100%;
+    }
+    
+    .control-group .btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 24px;
+        font-size: 15px;
     }
     
     .activity-grid {
@@ -612,6 +644,7 @@ body {
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
         -ms-overflow-style: none;
+        gap: 8px;
     }
     
     .activity-tabs::-webkit-scrollbar {
@@ -620,12 +653,52 @@ body {
     
     .tab-btn {
         flex-shrink: 0;
-        padding: 10px 16px;
-        font-size: 14px;
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap;
     }
     
     .tab-count {
-        font-size: 12px;
+        font-size: 11px;
         padding: 2px 6px;
+        min-width: 20px;
+    }
+}
+
+/* Extra small screens (iPhone SE, small Android phones) */
+@media (max-width: 390px) {
+    .container {
+        padding: 12px;
+    }
+    
+    .controls {
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .control-group {
+        padding: 12px;
+    }
+    
+    .tab-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        gap: 6px;
+    }
+    
+    .tab-count {
+        font-size: 10px;
+        padding: 1px 5px;
+        min-width: 18px;
+    }
+    
+    .control-group label {
+        font-size: 12px;
+    }
+    
+    .control-group input,
+    .control-group .btn {
+        font-size: 14px;
+        padding: 10px 16px;
     }
 }

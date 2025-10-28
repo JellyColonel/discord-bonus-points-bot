@@ -163,8 +163,8 @@ async function toggleVIP() {
             if (data.vip_status) {
                 vipBadge.classList.remove('badge-inactive');
                 vipBadge.classList.add('badge-vip');
-                vipBadge.textContent = 'â­ VIP Active';
-            } else {
+                vipBadge.textContent = '⭐ VIP Active';
+            } else { 
                 vipBadge.classList.remove('badge-vip');
                 vipBadge.classList.add('badge-inactive');
                 vipBadge.textContent = 'VIP Inactive';
