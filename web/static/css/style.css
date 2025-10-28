@@ -287,22 +287,21 @@ body {
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 30px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 24px;
-    flex-wrap: wrap;
 }
 
 .control-group {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex: 1;
-    min-width: 300px;
 }
 
 .control-group label {
     font-weight: 600;
     white-space: nowrap;
+    min-width: 110px;
 }
 
 .control-group input {
@@ -318,6 +317,104 @@ body {
 .control-group input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+/* Activity Tabs */
+.activity-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    margin-bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-count {
+    background: var(--surface-light);
+    color: var(--text-primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+}
+
+.tab-btn.active .tab-count {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 24px;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-size: 16px;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 /* Activity Categories */
@@ -456,6 +553,8 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 10000;
     animation: slideIn 0.3s ease;
+    min-width: 250px;
+    text-align: center;
 }
 
 .toast.success {
@@ -492,7 +591,7 @@ body {
     }
     
     .controls {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     
     .control-group {
@@ -505,5 +604,28 @@ body {
     
     .login-card {
         padding: 32px 24px;
+    }
+    
+    .activity-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    
+    .activity-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .tab-btn {
+        flex-shrink: 0;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+    
+    .tab-count {
+        font-size: 12px;
+        padding: 2px 6px;
     }
 }
