@@ -70,10 +70,19 @@ class Database:
                     activity_id TEXT,
                     completed INTEGER DEFAULT 0,
                     date TEXT,
+                    completed_at TEXT,
                     UNIQUE(user_id, activity_id, date)
                 )
             """)
             logger.debug("Activities table created/verified")
+
+            # Add completed_at column to existing tables
+            try:
+                cursor.execute("ALTER TABLE activities ADD COLUMN completed_at TEXT")
+                logger.info("Added completed_at column to activities table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                logger.debug("completed_at column already exists")
 
             # Settings table for persistent config
             cursor.execute("""
@@ -190,7 +199,7 @@ class Database:
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} → {new_balance})"
+            f"User {user_id} earned {amount} BP (Balance: {current_balance} â†’ {new_balance})"
         )
         return new_balance
 
@@ -200,7 +209,7 @@ class Database:
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} → {new_balance})"
+            f"User {user_id} lost {amount} BP (Balance: {current_balance} â†’ {new_balance})"
         )
         return new_balance
 
@@ -232,25 +241,36 @@ class Database:
         )
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            # Set completed_at to current UTC time when completing, NULL when uncompleting
+            completed_at = datetime.now(timezone.utc).isoformat() if completed else None
             cursor.execute(
                 """
-                INSERT INTO activities (user_id, activity_id, date, completed)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO activities (user_id, activity_id, date, completed, completed_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, activity_id, date) 
-                DO UPDATE SET completed = ?
+                DO UPDATE SET completed = ?, completed_at = ?
             """,
-                (str(user_id), activity_id, date, int(completed), int(completed)),
+                (
+                    str(user_id),
+                    activity_id,
+                    date,
+                    int(completed),
+                    completed_at,
+                    int(completed),
+                    completed_at,
+                ),
             )
             conn.commit()
 
     def get_user_completed_activities(self, user_id: int, date: str) -> List[str]:
-        """Get list of completed activities for a user on a specific date."""
+        """Get list of completed activities for a user on a specific date, sorted by completion time (most recent first)."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT activity_id FROM activities 
                 WHERE user_id = ? AND date = ? AND completed = 1
+                ORDER BY completed_at DESC NULLS LAST
             """,
                 (str(user_id), date),
             )
@@ -379,8 +399,8 @@ def get_today_date() -> str:
     Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
     Returns the "activity day" which continues until 04:00 UTC:
-    - From 00:00 to 03:59 UTC → Returns YESTERDAY's date (activities still valid)
-    - From 04:00 to 23:59 UTC → Returns TODAY's date (new activity day)
+    - From 00:00 to 03:59 UTC â†’ Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC â†’ Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
     between 00:00-04:00 UTC before the actual daily reset runs.

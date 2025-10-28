@@ -139,9 +139,11 @@ async function toggleVIP() {
     
     showLoading();
     
-    // Disable button to prevent multiple clicks
-    const vipButton = document.getElementById('vip-toggle-btn');
-    vipButton.disabled = true;
+    // Get the badge element
+    const vipBadge = document.getElementById('vip-badge');
+    
+    // Temporarily disable clicking
+    vipBadge.style.pointerEvents = 'none';
     
     try {
         // Get current VIP status from badge
@@ -164,7 +166,7 @@ async function toggleVIP() {
             if (data.vip_status) {
                 vipBadge.classList.remove('badge-inactive');
                 vipBadge.classList.add('badge-vip');
-                vipBadge.textContent = 'â­ VIP Active';
+                vipBadge.textContent = '⭐ VIP Active';
             } else {
                 vipBadge.classList.remove('badge-vip');
                 vipBadge.classList.add('badge-inactive');
@@ -183,7 +185,7 @@ async function toggleVIP() {
         showToast('Failed to toggle VIP status', 'error');
     } finally {
         hideLoading();
-        vipButton.disabled = false;
+        vipBadge.style.pointerEvents = 'auto';
     }
 }
 
@@ -495,7 +497,7 @@ function updateEmptyStates() {
                     `;
                 } else {
                     emptyState.innerHTML = `
-                        <div class="empty-icon">📝</div>
+                        <div class="empty-icon">🔍</div>
                         <h3>No Completed Activities Yet</h3>
                         <p>Start checking off activities to see them here!</p>
                     `;
@@ -688,7 +690,7 @@ function updateSearchEmptyStates(query) {
 
 // Helper function to escape HTML to prevent XSS
 function escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement('div');f
     div.textContent = text;
     return div.innerHTML;
 }

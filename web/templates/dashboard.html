@@ -7,13 +7,14 @@
     <!-- Stats Header -->
     <div class="stats-header">
         <div class="stat-card">
-            <h3>💰 Balance</h3>
+            <div class="stat-icon">💰</div>
+            <h3>Balance (BP)</h3>
             <p class="stat-value" id="balance-display">{{ balance }}</p>
-            <span class="stat-label">BP</span>
         </div>
         
         <div class="stat-card">
-            <h3>📊 Progress</h3>
+            <div class="stat-icon">📊</div>
+            <h3>Progress</h3>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
             </div>
@@ -21,40 +22,33 @@
         </div>
         
         <div class="stat-card">
-            <h3>✨ Earned Today</h3>
+            <div class="stat-icon">✨</div>
+            <h3>Earned Today (BP)</h3>
             <p class="stat-value earned" id="earned-display">{{ total_earned }}</p>
-            <span class="stat-label">BP</span>
         </div>
         
         <div class="stat-card">
-            <h3>🎯 Remaining</h3>
+            <div class="stat-icon">🎯</div>
+            <h3>Remaining (BP)</h3>
             <p class="stat-value remaining" id="remaining-display">{{ total_remaining }}</p>
-            <span class="stat-label">BP</span>
         </div>
     </div>
 
-    <!-- Status Badges -->
-    <div class="status-badges">
-        <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge">
-            {% if vip_status %}⭐ VIP Active{% else %}VIP Inactive{% endif %}
+    <!-- Status Badges & Controls -->
+    <div class="status-and-controls">
+        <div class="status-badges-inline">
+            <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge" onclick="toggleVIP()" title="Click to toggle VIP status">
+                {% if vip_status %}⭐ VIP Active{% else %}VIP Inactive{% endif %}
+            </div>
+            {% if event_active %}
+            <div class="badge badge-event">🎉 x2 BP Event Active!</div>
+            {% endif %}
         </div>
-        {% if event_active %}
-        <div class="badge badge-event">🎉 x2 BP Event Active!</div>
-        {% endif %}
-    </div>
-
-    <!-- Controls -->
-    <div class="controls">
-        <div class="control-group">
+        
+        <div class="balance-control-inline">
             <label for="balance-input">Set Balance:</label>
             <input type="number" id="balance-input" placeholder="Enter amount" min="0" max="1000000">
             <button onclick="setBalance()" class="btn btn-primary">Update</button>
-        </div>
-        
-        <div class="control-group">
-            <button onclick="toggleVIP()" class="btn btn-secondary" id="vip-toggle-btn">
-                Toggle VIP Status
-            </button>
         </div>
     </div>
 
@@ -127,7 +121,7 @@
     <!-- Completed Activities Tab -->
     <div class="tab-content" id="completed-tab">
         {% for category, category_activities in activities.items() %}
-        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list | reverse %}
+        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
         {% if completed_activities %}
         <div class="activity-category" data-category="{{ category }}">
             <h2 class="category-title">{{ category }}</h2>
@@ -157,7 +151,7 @@
         
         {% if completed_count == 0 %}
         <div class="empty-state">
-            <div class="empty-icon">📝</div>
+            <div class="empty-icon">🔍</div>
             <h3>No Completed Activities Yet</h3>
             <p>Start checking off activities to see them here!</p>
         </div>
