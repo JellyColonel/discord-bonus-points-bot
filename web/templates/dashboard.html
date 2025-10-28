@@ -58,6 +58,21 @@
         </div>
     </div>
 
+    <!-- Search Box -->
+    <div class="search-container">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" 
+                   id="activity-search" 
+                   placeholder="Search activities..." 
+                   autocomplete="off">
+            <button class="search-clear" id="search-clear" style="display: none;">✕</button>
+        </div>
+        <div class="search-results-count" id="search-results-count" style="display: none;">
+            <span id="search-count">0</span> results found
+        </div>
+    </div>
+
     <!-- Activity Tabs -->
     <div class="activity-tabs">
         <button class="tab-btn active" onclick="switchTab('active')" data-tab="active">
@@ -112,7 +127,7 @@
     <!-- Completed Activities Tab -->
     <div class="tab-content" id="completed-tab">
         {% for category, category_activities in activities.items() %}
-        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
+        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list | reverse %}
         {% if completed_activities %}
         <div class="activity-category" data-category="{{ category }}">
             <h2 class="category-title">{{ category }}</h2>

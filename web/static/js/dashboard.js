@@ -4,6 +4,7 @@
 
 // Global state
 let isLoading = false;
+let originalActivityOrder = {}; // Store original order of activities
 
 // Show/hide loading overlay
 function showLoading() {
@@ -163,8 +164,8 @@ async function toggleVIP() {
             if (data.vip_status) {
                 vipBadge.classList.remove('badge-inactive');
                 vipBadge.classList.add('badge-vip');
-                vipBadge.textContent = '⭐ VIP Active';
-            } else { 
+                vipBadge.textContent = 'â­ VIP Active';
+            } else {
                 vipBadge.classList.remove('badge-vip');
                 vipBadge.classList.add('badge-inactive');
                 vipBadge.textContent = 'VIP Inactive';
@@ -317,9 +318,46 @@ function moveActivityToTab(activityId, category, completed) {
         }
     }
     
-    // Add card to target category
+    // Add card to target category in correct position
     const grid = targetCategory.querySelector('.activity-grid');
-    grid.appendChild(newCard);
+    
+    // Find the correct position to insert the card
+    const existingCards = Array.from(grid.querySelectorAll('.activity-card'));
+    let inserted = false;
+    
+    // For completed tab, use reverse order (latest first)
+    if (targetTab === 'completed-tab') {
+        // Insert at the beginning for completed (reverse order)
+        if (existingCards.length > 0) {
+            grid.insertBefore(newCard, existingCards[0]);
+        } else {
+            grid.appendChild(newCard);
+        }
+        inserted = true;
+    } else {
+        // For active tab, use the original order captured on page load
+        const categoryOrder = originalActivityOrder[category] || {};
+        const currentPosition = categoryOrder[activityId];
+        
+        // Find where to insert based on original positions
+        for (let i = 0; i < existingCards.length; i++) {
+            const existingId = existingCards[i].getAttribute('data-activity-id');
+            const existingPosition = categoryOrder[existingId];
+            
+            // Insert before cards that came after it in the original order
+            if (currentPosition !== undefined && existingPosition !== undefined && 
+                currentPosition < existingPosition) {
+                grid.insertBefore(newCard, existingCards[i]);
+                inserted = true;
+                break;
+            }
+        }
+    }
+    
+    // If not inserted yet, add to the end
+    if (!inserted) {
+        grid.appendChild(newCard);
+    }
     
     // Check if source category is now empty and remove it
     const sourceCategory = document.querySelector(`#${sourceTab} [data-category="${category}"]`);
@@ -332,6 +370,24 @@ function moveActivityToTab(activityId, category, completed) {
     
     // Update empty states
     updateEmptyStates();
+    
+    // If search is active, update search empty states
+    const searchInput = document.getElementById('activity-search');
+    if (searchInput && searchInput.value.trim().length > 0) {
+        const query = searchInput.value.trim().toLowerCase();
+        updateSearchEmptyStates(query);
+        
+        // Hide categories with no visible cards
+        const allCategories = document.querySelectorAll('.activity-category');
+        allCategories.forEach(category => {
+            const visibleCards = category.querySelectorAll('.activity-card:not(.search-hidden)');
+            if (visibleCards.length === 0) {
+                category.style.display = 'none';
+            } else {
+                category.style.display = 'block';
+            }
+        });
+    }
 }
 
 // Create activity card element
@@ -358,6 +414,37 @@ function createActivityCard(activityId, name, bpValue, category, completed) {
         </div>
     `;
     
+    // Make entire card clickable
+    card.addEventListener('click', function(e) {
+        // Find the checkbox inside this card
+        const checkbox = this.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            // Toggle the checkbox
+            checkbox.checked = !checkbox.checked;
+            // Trigger the change event to call toggleActivity
+            const event = new Event('change', { bubbles: true });
+            checkbox.dispatchEvent(event);
+        }
+    });
+    
+    // Apply current search filter if active
+    const searchInput = document.getElementById('activity-search');
+    if (searchInput && searchInput.value.trim().length > 0) {
+        const query = searchInput.value.trim().toLowerCase();
+        const activityName = name.toLowerCase();
+        const activityIdLower = activityId.toLowerCase();
+        
+        // Check if this card matches the current search
+        if (activityName.includes(query) || activityIdLower.includes(query)) {
+            card.classList.add('search-match');
+            setTimeout(() => {
+                card.classList.remove('search-match');
+            }, 300);
+        } else {
+            card.classList.add('search-hidden');
+        }
+    }
+    
     return card;
 }
 
@@ -382,7 +469,20 @@ function updateEmptyStates() {
         const categories = tab.querySelectorAll('.activity-category');
         let emptyState = tab.querySelector('.empty-state');
         
-        if (categories.length === 0) {
+        // Hide empty categories (categories with no cards)
+        let hasVisibleCategories = false;
+        categories.forEach(category => {
+            const cards = category.querySelectorAll('.activity-card');
+            if (cards.length === 0) {
+                category.style.display = 'none';
+            } else {
+                category.style.display = 'block';
+                hasVisibleCategories = true;
+            }
+        });
+        
+        // Show empty state only if there are no visible categories with cards
+        if (!hasVisibleCategories) {
             if (!emptyState) {
                 emptyState = document.createElement('div');
                 emptyState.className = 'empty-state';
@@ -402,9 +502,11 @@ function updateEmptyStates() {
                 }
                 
                 tab.appendChild(emptyState);
+            } else {
+                emptyState.style.display = 'block';
             }
         } else if (emptyState) {
-            emptyState.remove();
+            emptyState.style.display = 'none';
         }
     });
 }
@@ -419,7 +521,206 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Store original order of all activities
+    captureOriginalOrder();
+    
+    // Make all activity cards clickable
+    initializeClickableCards();
+    
+    // Initialize search functionality
+    initializeSearch();
+    
+    // Hide empty categories on initial load
+    updateEmptyStates();
 });
+
+// Capture the original order of activities from the initial page render
+function captureOriginalOrder() {
+    const allCards = document.querySelectorAll('.activity-card');
+    let position = 0;
+    
+    allCards.forEach(card => {
+        const activityId = card.getAttribute('data-activity-id');
+        const category = card.getAttribute('data-category');
+        
+        if (!originalActivityOrder[category]) {
+            originalActivityOrder[category] = {};
+        }
+        
+        originalActivityOrder[category][activityId] = position++;
+    });
+    
+    console.log('Original order captured:', originalActivityOrder);
+}
+
+// Initialize click handlers for all activity cards
+function initializeClickableCards() {
+    const allCards = document.querySelectorAll('.activity-card');
+    allCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Find the checkbox inside this card
+            const checkbox = this.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                // Toggle the checkbox
+                checkbox.checked = !checkbox.checked;
+                // Trigger the change event to call toggleActivity
+                const event = new Event('change', { bubbles: true });
+                checkbox.dispatchEvent(event);
+            }
+        });
+    });
+}
+
+// =================================================================
+// Search Functionality
+// =================================================================
+
+function initializeSearch() {
+    const searchInput = document.getElementById('activity-search');
+    const searchClear = document.getElementById('search-clear');
+    const searchResultsCount = document.getElementById('search-results-count');
+    const searchCount = document.getElementById('search-count');
+    
+    if (!searchInput) return;
+    
+    // Search as user types
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        
+        if (query.length > 0) {
+            searchClear.style.display = 'flex';
+            performSearch(query);
+            
+            // Update results count
+            const visibleCards = document.querySelectorAll('.activity-card:not(.search-hidden)');
+            searchCount.textContent = visibleCards.length;
+            searchResultsCount.style.display = 'block';
+        } else {
+            clearSearch();
+        }
+    });
+    
+    // Clear button
+    searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch();
+        searchInput.focus();
+    });
+    
+    // Clear on Escape key
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            clearSearch();
+        }
+    });
+}
+
+function performSearch(query) {
+    const allCards = document.querySelectorAll('.activity-card');
+    const allCategories = document.querySelectorAll('.activity-category');
+    
+    allCards.forEach(card => {
+        const activityName = card.querySelector('label').textContent.toLowerCase();
+        const activityId = card.getAttribute('data-activity-id').toLowerCase();
+        
+        // Check if query matches name or ID
+        if (activityName.includes(query) || activityId.includes(query)) {
+            card.classList.remove('search-hidden');
+            card.classList.add('search-match');
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                card.classList.remove('search-match');
+            }, 300);
+        } else {
+            card.classList.add('search-hidden');
+            card.classList.remove('search-match');
+        }
+    });
+    
+    // Hide empty categories
+    allCategories.forEach(category => {
+        const visibleCards = category.querySelectorAll('.activity-card:not(.search-hidden)');
+        if (visibleCards.length === 0) {
+            category.style.display = 'none';
+        } else {
+            category.style.display = 'block';
+        }
+    });
+    
+    // Check each tab for results and show no-results message if needed
+    updateSearchEmptyStates(query);
+    
+    // Hide default empty states during search
+    document.querySelectorAll('.empty-state').forEach(state => {
+        state.style.display = 'none';
+    });
+}
+
+function updateSearchEmptyStates(query) {
+    const tabs = ['active-tab', 'completed-tab'];
+    
+    tabs.forEach(tabId => {
+        const tab = document.getElementById(tabId);
+        const visibleCards = tab.querySelectorAll('.activity-card:not(.search-hidden)');
+        
+        // Remove existing search empty state if present
+        const existingSearchEmpty = tab.querySelector('.search-empty-state');
+        if (existingSearchEmpty) {
+            existingSearchEmpty.remove();
+        }
+        
+        // If no visible cards in this tab, show search empty state
+        if (visibleCards.length === 0) {
+            const searchEmptyState = document.createElement('div');
+            searchEmptyState.className = 'search-empty-state';
+            searchEmptyState.innerHTML = `
+                <div class="empty-icon">🔍</div>
+                <h3>No results found</h3>
+                <p>No activities match "<strong>${escapeHtml(query)}</strong>" in this tab</p>
+            `;
+            tab.appendChild(searchEmptyState);
+        }
+    });
+}
+
+// Helper function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function clearSearch() {
+    const searchClear = document.getElementById('search-clear');
+    const searchResultsCount = document.getElementById('search-results-count');
+    
+    // Hide clear button and results count
+    searchClear.style.display = 'none';
+    searchResultsCount.style.display = 'none';
+    
+    // Show all cards
+    const allCards = document.querySelectorAll('.activity-card');
+    allCards.forEach(card => {
+        card.classList.remove('search-hidden', 'search-match');
+    });
+    
+    // Show all categories
+    const allCategories = document.querySelectorAll('.activity-category');
+    allCategories.forEach(category => {
+        category.style.display = 'block';
+    });
+    
+    // Remove search empty states
+    document.querySelectorAll('.search-empty-state').forEach(state => {
+        state.remove();
+    });
+    
+    // Restore default empty states
+    updateEmptyStates();
+}
 
 // Auto-refresh every 30 seconds (optional - commented out)
 // setInterval(refreshStats, 30000);
