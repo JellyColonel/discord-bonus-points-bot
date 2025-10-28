@@ -67,7 +67,7 @@ async function toggleActivity(activityId, completed) {
             await refreshStats();
             
             showToast(
-                `Activity ${completed ? 'completed' : 'uncompleted'} (${data.bp_change > 0 ? '+' : ''}${data.bp_change} BP)`,
+                `Активность ${completed ? 'выполнена' : 'отменена'} (${data.bp_change > 0 ? '+' : ''}${data.bp_change} BP)`,
                 'success'
             );
         } else {
@@ -75,7 +75,7 @@ async function toggleActivity(activityId, completed) {
         }
     } catch (error) {
         console.error('Error toggling activity:', error);
-        showToast('Failed to update activity', 'error');
+        showToast('Не удалось обновить активность', 'error');
         
         // Revert checkbox
         const checkbox = document.getElementById(`activity-${activityId}`) || 
@@ -96,12 +96,12 @@ async function setBalance() {
     const amount = parseInt(input.value);
     
     if (isNaN(amount) || amount < 0) {
-        showToast('Please enter a valid amount', 'error');
+        showToast('Пожалуйста, введите корректную сумму', 'error');
         return;
     }
     
     if (amount > 1000000) {
-        showToast('Amount cannot exceed 1,000,000 BP', 'error');
+        showToast('Сумма не может превышать 1,000,000 BP', 'error');
         return;
     }
     
@@ -121,13 +121,13 @@ async function setBalance() {
         if (data.success) {
             document.getElementById('balance-display').textContent = data.new_balance;
             input.value = '';
-            showToast(`Balance updated to ${data.new_balance} BP`, 'success');
+            showToast(`Баланс обновлён до ${data.new_balance} BP`, 'success');
         } else {
             throw new Error(data.error || 'Unknown error');
         }
     } catch (error) {
         console.error('Error setting balance:', error);
-        showToast('Failed to update balance', 'error');
+        showToast('Не удалось обновить баланс', 'error');
     } finally {
         hideLoading();
     }
@@ -166,14 +166,14 @@ async function toggleVIP() {
             if (data.vip_status) {
                 vipBadge.classList.remove('badge-inactive');
                 vipBadge.classList.add('badge-vip');
-                vipBadge.textContent = '⭐ VIP Active';
+                vipBadge.textContent = '⭐ VIP Активен';
             } else {
                 vipBadge.classList.remove('badge-vip');
                 vipBadge.classList.add('badge-inactive');
-                vipBadge.textContent = 'VIP Inactive';
+                vipBadge.textContent = 'VIP Неактивен';
             }
             
-            showToast(`VIP status ${data.vip_status ? 'activated' : 'deactivated'}`, 'success');
+            showToast(`VIP статус ${data.vip_status ? 'активирован' : 'деактивирован'}`, 'success');
             
             // Update all activity BP values without page reload
             await updateActivityBPValues();
@@ -182,7 +182,7 @@ async function toggleVIP() {
         }
     } catch (error) {
         console.error('Error toggling VIP:', error);
-        showToast('Failed to toggle VIP status', 'error');
+        showToast('Не удалось изменить VIP статус', 'error');
     } finally {
         hideLoading();
         vipBadge.style.pointerEvents = 'auto';
@@ -492,14 +492,14 @@ function updateEmptyStates() {
                 if (tabId === 'active-tab') {
                     emptyState.innerHTML = `
                         <div class="empty-icon">🎉</div>
-                        <h3>All Activities Completed!</h3>
-                        <p>Great job! Check the Completed tab to review or uncheck activities.</p>
+                        <h3>Все активности выполнены!</h3>
+                        <p>Отличная работа! Перейдите во вкладку Завершённые для просмотра или отмены активностей.</p>
                     `;
                 } else {
                     emptyState.innerHTML = `
                         <div class="empty-icon">🔍</div>
-                        <h3>No Completed Activities Yet</h3>
-                        <p>Start checking off activities to see them here!</p>
+                        <h3>Пока нет завершённых активностей</h3>
+                        <p>Начните отмечать активности, чтобы увидеть их здесь!</p>
                     `;
                 }
                 
@@ -690,7 +690,7 @@ function updateSearchEmptyStates(query) {
 
 // Helper function to escape HTML to prevent XSS
 function escapeHtml(text) {
-    const div = document.createElement('div');f
+    const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
