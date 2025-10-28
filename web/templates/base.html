@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Bonus Points Dashboard{% endblock %}</title>
+    <title>{% block title %}Панель Бонусных Очков{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -11,12 +11,12 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
-                <h1>💎 Bonus Points Dashboard</h1>
+                <h1>💎 Панель Бонусных Очков</h1>
             </div>
             {% if session.user %}
             <div class="nav-user">
                 <span class="username">{{ session.user.username }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти</a>
             </div>
             {% endif %}
         </div>
@@ -27,7 +27,7 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; 2025 Bonus Points Bot. Made with â¤ï¸ for your Discord server.</p>
+        <p>&copy; 2025 Бонусные Очки. Сделано с ❤️ для вашего Discord сервера.</p>
     </footer>
 
     {% block extra_js %}{% endblock %}

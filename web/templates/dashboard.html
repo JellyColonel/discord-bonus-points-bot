@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Bonus Points{% endblock %}
+{% block title %}Панель - Бонусные Очки{% endblock %}
 
 {% block content %}
 <div class="dashboard">
@@ -8,13 +8,13 @@
     <div class="stats-header">
         <div class="stat-card">
             <div class="stat-icon">💰</div>
-            <h3>Balance (BP)</h3>
+            <h3>Баланс (BP)</h3>
             <p class="stat-value" id="balance-display">{{ balance }}</p>
         </div>
         
         <div class="stat-card">
             <div class="stat-icon">📊</div>
-            <h3>Progress</h3>
+            <h3>Прогресс</h3>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
             </div>
@@ -23,13 +23,13 @@
         
         <div class="stat-card">
             <div class="stat-icon">✨</div>
-            <h3>Earned Today (BP)</h3>
+            <h3>Заработано Сегодня (BP)</h3>
             <p class="stat-value earned" id="earned-display">{{ total_earned }}</p>
         </div>
         
         <div class="stat-card">
             <div class="stat-icon">🎯</div>
-            <h3>Remaining (BP)</h3>
+            <h3>Осталось (BP)</h3>
             <p class="stat-value remaining" id="remaining-display">{{ total_remaining }}</p>
         </div>
     </div>
@@ -37,18 +37,18 @@
     <!-- Status Badges & Controls -->
     <div class="status-and-controls">
         <div class="status-badges-inline">
-            <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge" onclick="toggleVIP()" title="Click to toggle VIP status">
-                {% if vip_status %}⭐ VIP Active{% else %}VIP Inactive{% endif %}
+            <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge" onclick="toggleVIP()" title="Нажмите для переключения VIP статуса">
+                {% if vip_status %}⭐ VIP Активен{% else %}VIP Неактивен{% endif %}
             </div>
             {% if event_active %}
-            <div class="badge badge-event">🎉 x2 BP Event Active!</div>
+            <div class="badge badge-event">🎉 Событие x2 BP Активно!</div>
             {% endif %}
         </div>
         
         <div class="balance-control-inline">
-            <label for="balance-input">Set Balance:</label>
-            <input type="number" id="balance-input" placeholder="Enter amount" min="0" max="1000000">
-            <button onclick="setBalance()" class="btn btn-primary">Update</button>
+            <label for="balance-input">Установить Баланс:</label>
+            <input type="number" id="balance-input" placeholder="Введите сумму" min="0" max="1000000">
+            <button onclick="setBalance()" class="btn btn-primary">Обновить</button>
         </div>
     </div>
 
@@ -58,28 +58,28 @@
             <span class="search-icon">🔍</span>
             <input type="text" 
                    id="activity-search" 
-                   placeholder="Search activities..." 
+                   placeholder="Поиск активностей..." 
                    autocomplete="off">
             <button class="search-clear" id="search-clear" style="display: none;">✕</button>
         </div>
         <div class="search-results-count" id="search-results-count" style="display: none;">
-            <span id="search-count">0</span> results found
+            <span id="search-count">0</span> результатов найдено
         </div>
     </div>
 
     <!-- Activity Tabs -->
     <div class="activity-tabs">
         <button class="tab-btn active" onclick="switchTab('active')" data-tab="active">
-            ✨ Active Activities
+            ✨ Активные Задания
             <span class="tab-count" id="active-count">{{ total_activities - completed_count }}</span>
         </button>
         <button class="tab-btn" onclick="switchTab('completed')" data-tab="completed">
-            ✅ Completed
+            ✅ Завершённые
             <span class="tab-count" id="completed-count">{{ completed_count }}</span>
         </button>
     </div>
 
-    <!-- Active Activities Tab -->
+    <!-- Активные Задания Tab -->
     <div class="tab-content active" id="active-tab">
         {% for category, category_activities in activities.items() %}
         {% set active_activities = category_activities | selectattr('completed', 'equalto', False) | list %}
@@ -112,13 +112,13 @@
         {% if completed_count == total_activities %}
         <div class="empty-state">
             <div class="empty-icon">🎉</div>
-            <h3>All Activities Completed!</h3>
-            <p>Great job! Check the Completed tab to review or uncheck activities.</p>
+            <h3>All Activities Завершённые!</h3>
+            <p>Great job! Check the Завершённые tab to review or uncheck activities.</p>
         </div>
         {% endif %}
     </div>
 
-    <!-- Completed Activities Tab -->
+    <!-- Завершённые Activities Tab -->
     <div class="tab-content" id="completed-tab">
         {% for category, category_activities in activities.items() %}
         {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
@@ -152,8 +152,8 @@
         {% if completed_count == 0 %}
         <div class="empty-state">
             <div class="empty-icon">🔍</div>
-            <h3>No Completed Activities Yet</h3>
-            <p>Start checking off activities to see them here!</p>
+            <h3>Пока нет завершённых активностей</h3>
+            <p>Начните отмечать активности, чтобы увидеть их здесь!</p>
         </div>
         {% endif %}
     </div>
