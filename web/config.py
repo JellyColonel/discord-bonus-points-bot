@@ -1,6 +1,7 @@
 """Web dashboard configuration."""
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,7 +17,10 @@ class WebConfig:
     # Flask settings
     SECRET_KEY = os.getenv("SECRET_KEY")
     SESSION_TYPE = "filesystem"
-    SESSION_PERMANENT = False
+    SESSION_PERMANENT = True
+    PERMANENT_SESSION_LIFETIME = timedelta(
+        days=int(os.getenv("SESSION_LIFETIME_DAYS", "30"))
+    )
     SESSION_USE_SIGNER = True
 
     # Discord OAuth2
