@@ -199,6 +199,18 @@ ACTIVITIES = {
             "bp_vip": 20,
         },
         {
+            "id": "mafia_contraband",
+            "name": "💼 Сдать 5 контрабанды (Только для мафий)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "merryweather_airdrop",
+            "name": "🪂 Принять участие в двух Airdrop",
+            "bp": 4,
+            "bp_vip": 8,
+        },
+        {
             "id": "treasure",
             "name": "🏺 Выкопать 1 сокровище (не хлам)",
             "bp": 1,
@@ -219,6 +231,48 @@ ACTIVITIES = {
         {
             "id": "online_3h",
             "name": "🕒 3 часа в онлайне",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x2",
+            "name": "🕒 3 часа в онлайне (x2)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x3",
+            "name": "🕒 3 часа в онлайне (x3)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x4",
+            "name": "🕒 3 часа в онлайне (x4)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x5",
+            "name": "🕒 3 часа в онлайне (x5)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x6",
+            "name": "🕒 3 часа в онлайне (x6)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x7",
+            "name": "🕒 3 часа в онлайне (x7)",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "online_3h_x8",
+            "name": "🕒 3 часа в онлайне (x8)",
             "bp": 2,
             "bp_vip": 4,
         },
@@ -263,6 +317,12 @@ ACTIVITIES = {
         {
             "id": "dance_battle",
             "name": "💃 3 победы в Дэнс Баттлах",
+            "bp": 2,
+            "bp_vip": 4,
+        },
+        {
+            "id": "car_repair_coop",
+            "name": "👨‍🔧 Починить деталь авто другого игрока в автосервисе",
             "bp": 2,
             "bp_vip": 4,
         },
