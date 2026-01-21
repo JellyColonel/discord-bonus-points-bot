@@ -1,10 +1,12 @@
 """Flask web application for Bonus Points Dashboard."""
 
 import logging
+import time
 
 from flask import (
     Flask,
     Response,
+    g,
     jsonify,
     redirect,
     render_template,
@@ -42,6 +44,51 @@ logger.info(f"Web dashboard using database: {WebConfig.DB_PATH}")
 def close_db_connection(exception=None):
     """Close database connection at the end of each request."""
     db.close_connection()
+
+
+# ============================================================================
+# Request Logging
+# ============================================================================
+
+
+@app.before_request
+def before_request_logging():
+    """Store request start time for timing calculation."""
+    g.start_time = time.perf_counter()
+
+
+@app.after_request
+def after_request_logging(response):
+    """Log API requests with timing information."""
+    # Only log API routes
+    if not request.path.startswith("/api/"):
+        return response
+
+    # Calculate request duration
+    duration_ms = (time.perf_counter() - g.start_time) * 1000
+
+    # Get user ID if logged in
+    user_id = session.get("user", {}).get("id", "anonymous")
+
+    # Build log message
+    status_code = response.status_code
+    method = request.method
+    path = request.path
+
+    # Log format: [API] METHOD /path | User: id | 45ms | status
+    log_msg = (
+        f"[API] {method} {path} | User: {user_id} | {duration_ms:.0f}ms | {status_code}"
+    )
+
+    # Log at appropriate level based on status code
+    if status_code >= 500:
+        logger.error(log_msg)
+    elif status_code >= 400:
+        logger.warning(log_msg)
+    else:
+        logger.info(log_msg)
+
+    return response
 
 
 # ============================================================================
@@ -191,7 +238,7 @@ def callback() -> Response | tuple[str, int]:
         logger.info(f"User {user_info['username']} logged in (ID: {user_info['id']})")
         return redirect(url_for("dashboard"))
 
-    except Exception as e:
+    except Exception:
         logger.error(f"OAuth callback error: {e}")
         return f"Authentication failed: {str(e)}", 500
 
