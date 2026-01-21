@@ -70,6 +70,73 @@ def api_error(message: str, status_code: int = 400) -> tuple[Response, int]:
 
 
 # ============================================================================
+# Input Validation Helpers
+# ============================================================================
+
+
+def validate_activity_id(value) -> tuple[bool, str]:
+    """Validate activity_id format.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not value:
+        return False, "Missing activity_id"
+    if not isinstance(value, str):
+        return False, "activity_id must be a string"
+    # Activity IDs should only contain alphanumeric chars and underscores
+    if not all(c.isalnum() or c == "_" for c in value):
+        return False, "Invalid activity_id format"
+    if len(value) > 50:
+        return False, "activity_id too long"
+    return True, ""
+
+
+def validate_boolean(value, field_name: str) -> tuple[bool, bool, str]:
+    """Validate and convert a boolean field.
+
+    Returns:
+        Tuple of (is_valid, converted_value, error_message)
+    """
+    if value is None:
+        return False, False, f"Missing {field_name}"
+    if isinstance(value, bool):
+        return True, value, ""
+    if isinstance(value, str):
+        if value.lower() in ("true", "1", "yes"):
+            return True, True, ""
+        if value.lower() in ("false", "0", "no"):
+            return True, False, ""
+    if isinstance(value, int):
+        return True, bool(value), ""
+    return False, False, f"{field_name} must be a boolean"
+
+
+def validate_integer(
+    value, field_name: str, min_val: int = None, max_val: int = None
+) -> tuple[bool, int, str]:
+    """Validate and convert an integer field.
+
+    Returns:
+        Tuple of (is_valid, converted_value, error_message)
+    """
+    if value is None:
+        return False, 0, f"Missing {field_name}"
+
+    try:
+        int_value = int(value)
+    except (ValueError, TypeError):
+        return False, 0, f"{field_name} must be a number"
+
+    if min_val is not None and int_value < min_val:
+        return False, 0, f"{field_name} cannot be less than {min_val}"
+    if max_val is not None and int_value > max_val:
+        return False, 0, f"{field_name} cannot exceed {max_val}"
+
+    return True, int_value, ""
+
+
+# ============================================================================
 # Authentication Routes
 # ============================================================================
 
@@ -183,11 +250,19 @@ def api_toggle_activity() -> Response | tuple[Response, int]:
     if not data:
         return api_error("Missing request body")
 
+    # Validate activity_id
+    is_valid, error_msg = validate_activity_id(data.get("activity_id"))
+    if not is_valid:
+        return api_error(error_msg)
     activity_id = data.get("activity_id")
-    completed = data.get("completed", False)
 
-    if not activity_id:
-        return api_error("Missing activity_id")
+    # Validate completed (optional, defaults to False)
+    completed = data.get("completed", False)
+    if not isinstance(completed, bool):
+        # Try to coerce to boolean
+        is_valid, completed, error_msg = validate_boolean(completed, "completed")
+        if not is_valid:
+            return api_error(error_msg)
 
     activity = get_activity_by_id(activity_id)
     if not activity:
@@ -230,21 +305,12 @@ def api_set_balance() -> Response | tuple[Response, int]:
     if not data:
         return api_error("Missing request body")
 
-    amount = data.get("amount")
-
-    if amount is None:
-        return api_error("Missing amount")
-
-    try:
-        amount = int(amount)
-    except (ValueError, TypeError):
-        return api_error("Invalid amount")
-
-    if amount < 0:
-        return api_error("Amount cannot be negative")
-
-    if amount > 1000000:
-        return api_error("Amount cannot exceed 1,000,000")
+    # Validate amount
+    is_valid, amount, error_msg = validate_integer(
+        data.get("amount"), "amount", min_val=0, max_val=1000000
+    )
+    if not is_valid:
+        return api_error(error_msg)
 
     try:
         db.set_user_bp_balance(user_id, amount)
@@ -265,7 +331,12 @@ def api_toggle_vip() -> Response | tuple[Response, int]:
     if not data:
         return api_error("Missing request body")
 
-    vip_status = bool(data.get("vip_status", False))
+    # Validate vip_status
+    is_valid, vip_status, error_msg = validate_boolean(
+        data.get("vip_status"), "vip_status"
+    )
+    if not is_valid:
+        return api_error(error_msg)
 
     try:
         db.set_user_vip_status(user_id, vip_status)
@@ -285,7 +356,12 @@ def api_toggle_event() -> Response | tuple[Response, int]:
     if not data:
         return api_error("Missing request body")
 
-    event_status = bool(data.get("event_status", False))
+    # Validate event_status
+    is_valid, event_status, error_msg = validate_boolean(
+        data.get("event_status"), "event_status"
+    )
+    if not is_valid:
+        return api_error(error_msg)
 
     try:
         db.set_setting("double_bp_event", str(event_status))
