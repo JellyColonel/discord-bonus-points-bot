@@ -238,7 +238,7 @@ def callback() -> Response | tuple[str, int]:
         logger.info(f"User {user_info['username']} logged in (ID: {user_info['id']})")
         return redirect(url_for("dashboard"))
 
-    except Exception:
+    except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         return f"Authentication failed: {str(e)}", 500
 

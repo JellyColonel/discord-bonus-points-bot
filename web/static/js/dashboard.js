@@ -2,11 +2,19 @@
 // Dashboard Interactivity
 // =================================================================
 
-// Global state
+/** @type {boolean} Whether an API request is in progress */
 let isLoading = false;
-let originalActivityOrder = {}; // Store original order of activities
 
-// Debounce utility - delays function execution until user stops typing
+/** @type {Object.<string, Object.<string, number>>} Original activity order by category */
+let originalActivityOrder = {};
+
+/**
+ * Creates a debounced version of a function that delays execution
+ * until after the specified wait time has elapsed since the last call.
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - The delay in milliseconds
+ * @returns {Function} The debounced function
+ */
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -19,23 +27,38 @@ function debounce(func, wait) {
     };
 }
 
-// Get CSRF token from meta tag
+/**
+ * Get CSRF token from meta tag for secure API requests.
+ * @returns {string} The CSRF token
+ */
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]').content;
 }
 
-// Show/hide loading overlay
+/**
+ * Show the loading overlay and set loading state.
+ * @returns {void}
+ */
 function showLoading() {
     document.getElementById('loading-overlay').style.display = 'flex';
     isLoading = true;
 }
 
+/**
+ * Hide the loading overlay and clear loading state.
+ * @returns {void}
+ */
 function hideLoading() {
     document.getElementById('loading-overlay').style.display = 'none';
     isLoading = false;
 }
 
-// Show toast notification
+/**
+ * Display a toast notification message.
+ * @param {string} message - The message to display
+ * @param {'success'|'error'} [type='success'] - The type of notification
+ * @returns {void}
+ */
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -47,7 +70,13 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Toggle activity completion
+/**
+ * Toggle an activity's completion status via API.
+ * Updates UI, balance, and moves card between tabs.
+ * @param {string} activityId - The activity identifier
+ * @param {boolean} completed - Whether the activity is now completed
+ * @returns {Promise<void>}
+ */
 async function toggleActivity(activityId, completed) {
     if (isLoading) return;
 
@@ -107,7 +136,11 @@ async function toggleActivity(activityId, completed) {
     }
 }
 
-// Set balance
+/**
+ * Set the user's BP balance via API.
+ * Validates input and updates the display on success.
+ * @returns {Promise<void>}
+ */
 async function setBalance() {
     if (isLoading) return;
 
@@ -153,7 +186,11 @@ async function setBalance() {
     }
 }
 
-// Toggle VIP status
+/**
+ * Toggle the user's VIP status via API.
+ * Updates the VIP badge and refreshes activity BP values.
+ * @returns {Promise<void>}
+ */
 async function toggleVIP() {
     if (isLoading) return;
 
@@ -208,7 +245,11 @@ async function toggleVIP() {
     }
 }
 
-// Update all activity BP values in the UI
+/**
+ * Fetch and update all activity BP values from the API.
+ * Updates both individual activity displays and totals.
+ * @returns {Promise<void>}
+ */
 async function updateActivityBPValues() {
     try {
         const response = await fetch('/api/activity_bp_values');
@@ -236,7 +277,11 @@ async function updateActivityBPValues() {
     }
 }
 
-// Refresh statistics (earned/remaining counters)
+/**
+ * Refresh user statistics from the API.
+ * Updates balance, earned/remaining BP, and progress bar.
+ * @returns {Promise<void>}
+ */
 async function refreshStats() {
     try {
         const response = await fetch('/api/user_stats');
@@ -274,7 +319,11 @@ async function refreshStats() {
     }
 }
 
-// Switch between tabs
+/**
+ * Switch between active and completed activity tabs.
+ * @param {'active'|'completed'} tabName - The tab to switch to
+ * @returns {void}
+ */
 function switchTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -291,7 +340,14 @@ function switchTab(tabName) {
     document.getElementById(`${tabName}-tab`).classList.add('active');
 }
 
-// Move activity card to appropriate tab
+/**
+ * Move an activity card between active and completed tabs.
+ * Handles card creation, category management, and position ordering.
+ * @param {string} activityId - The activity identifier
+ * @param {string} category - The activity's category name
+ * @param {boolean} completed - Whether the activity is now completed
+ * @returns {void}
+ */
 function moveActivityToTab(activityId, category, completed) {
     // Get the card from current location
     const card = document.querySelector(`[data-activity-id="${activityId}"]`);
@@ -411,7 +467,15 @@ function moveActivityToTab(activityId, category, completed) {
     }
 }
 
-// Create activity card element
+/**
+ * Create a new activity card DOM element.
+ * @param {string} activityId - The activity identifier
+ * @param {string} name - The activity display name
+ * @param {string} bpValue - The BP value text (e.g., "4 BP")
+ * @param {string} category - The activity's category name
+ * @param {boolean} completed - Whether the activity is completed
+ * @returns {HTMLDivElement} The created card element
+ */
 function createActivityCard(activityId, name, bpValue, category, completed) {
     const card = document.createElement('div');
     card.className = `activity-card ${completed ? 'completed' : ''}`;
@@ -469,7 +533,11 @@ function createActivityCard(activityId, name, bpValue, category, completed) {
     return card;
 }
 
-// Update tab counts
+/**
+ * Update the count badges on the tab buttons.
+ * @param {number} completedDelta - Change in completed count (+1 or -1)
+ * @returns {void}
+ */
 function updateTabCounts(completedDelta) {
     const activeCount = document.getElementById('active-count');
     const completedCount = document.getElementById('completed-count');
@@ -483,7 +551,11 @@ function updateTabCounts(completedDelta) {
     }
 }
 
-// Update empty states in both tabs
+/**
+ * Update empty state messages in both tabs.
+ * Shows/hides empty state based on whether activities exist.
+ * @returns {void}
+ */
 function updateEmptyStates() {
     ['active-tab', 'completed-tab'].forEach(tabId => {
         const tab = document.getElementById(tabId);
@@ -556,7 +628,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateEmptyStates();
 });
 
-// Capture the original order of activities from the initial page render
+/**
+ * Capture the original order of activities from the initial page render.
+ * Used to maintain correct ordering when moving cards between tabs.
+ * @returns {void}
+ */
 function captureOriginalOrder() {
     const allCards = document.querySelectorAll('.activity-card');
     let position = 0;
@@ -575,7 +651,11 @@ function captureOriginalOrder() {
     console.log('Original order captured:', originalActivityOrder);
 }
 
-// Initialize click handlers for all activity cards
+/**
+ * Initialize click handlers for all activity cards.
+ * Makes the entire card clickable, not just the checkbox.
+ * @returns {void}
+ */
 function initializeClickableCards() {
     const allCards = document.querySelectorAll('.activity-card');
     allCards.forEach(card => {
@@ -597,6 +677,11 @@ function initializeClickableCards() {
 // Search Functionality
 // =================================================================
 
+/**
+ * Initialize search functionality with debouncing.
+ * Sets up input handler, clear button, and escape key listener.
+ * @returns {void}
+ */
 function initializeSearch() {
     const searchInput = document.getElementById('activity-search');
     const searchClear = document.getElementById('search-clear');
@@ -643,6 +728,12 @@ function initializeSearch() {
     });
 }
 
+/**
+ * Filter activity cards based on search query.
+ * Matches against activity name and ID.
+ * @param {string} query - The lowercase search query
+ * @returns {void}
+ */
 function performSearch(query) {
     const allCards = document.querySelectorAll('.activity-card');
     const allCategories = document.querySelectorAll('.activity-category');
@@ -685,6 +776,11 @@ function performSearch(query) {
     });
 }
 
+/**
+ * Show "no results" message in tabs with no matching activities.
+ * @param {string} query - The search query to display in the message
+ * @returns {void}
+ */
 function updateSearchEmptyStates(query) {
     const tabs = ['active-tab', 'completed-tab'];
 
@@ -712,13 +808,21 @@ function updateSearchEmptyStates(query) {
     });
 }
 
-// Helper function to escape HTML to prevent XSS
+/**
+ * Escape HTML special characters to prevent XSS attacks.
+ * @param {string} text - The text to escape
+ * @returns {string} The escaped HTML string
+ */
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
+/**
+ * Clear the search and restore all activities to visible state.
+ * @returns {void}
+ */
 function clearSearch() {
     const searchClear = document.getElementById('search-clear');
     const searchResultsCount = document.getElementById('search-results-count');
