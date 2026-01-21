@@ -255,6 +255,65 @@ async function toggleVIP() {
 }
 
 /**
+ * Toggle the user's x2 event status via API.
+ * Updates the event badge and refreshes activity BP values.
+ * @returns {Promise<void>}
+ */
+async function toggleEvent() {
+    if (isLoading) return;
+
+    showLoading();
+
+    // Get the badge element
+    const eventBadge = document.getElementById('event-badge');
+
+    // Temporarily disable clicking
+    eventBadge.style.pointerEvents = 'none';
+
+    try {
+        const currentEvent = eventBadge.classList.contains('badge-event');
+        const newEvent = !currentEvent;
+
+        const response = await fetch('/api/toggle_event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ event_status: newEvent })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update badge smoothly
+            if (data.event_status) {
+                eventBadge.classList.remove('badge-inactive');
+                eventBadge.classList.add('badge-event');
+                eventBadge.textContent = '🎉 x2 BP Активно';
+            } else {
+                eventBadge.classList.remove('badge-event');
+                eventBadge.classList.add('badge-inactive');
+                eventBadge.textContent = 'x2 BP Неактивно';
+            }
+
+            showToast(`x2 событие ${data.event_status ? 'активировано' : 'деактивировано'}`, 'success');
+
+            // Update all activity BP values without page reload
+            await updateActivityBPValues();
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error toggling event:', error);
+        showToast('Не удалось изменить статус события', 'error');
+    } finally {
+        hideLoading();
+        eventBadge.style.pointerEvents = 'auto';
+    }
+}
+
+/**
  * Fetch and update all activity BP values from the API.
  * Updates both individual activity displays and totals.
  * @returns {Promise<void>}

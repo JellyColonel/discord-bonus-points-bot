@@ -335,7 +335,7 @@ def api_toggle_activity() -> Response | tuple[Response, int]:
 
         # Update balance
         vip_status = db.get_user_vip_status(user_id)
-        event_active = is_event_active(db)
+        event_active = is_event_active(db, user_id)
         bp = calculate_bp(activity, vip_status, event_active)
 
         if completed:
@@ -412,7 +412,8 @@ def api_toggle_vip() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_toggle_event() -> Response | tuple[Response, int]:
-    """Toggle x2 BP event status (admin function)."""
+    """Toggle x2 BP event status for the current user."""
+    user_id = int(session["user"]["id"])
     data = request.json
 
     if not data:
@@ -426,11 +427,11 @@ def api_toggle_event() -> Response | tuple[Response, int]:
         return api_error(error_msg)
 
     try:
-        db.set_setting("double_bp_event", str(event_status))
-        logger.info(f"Event status set to {event_status}")
+        db.set_user_event_status(user_id, event_status)
+        logger.info(f"User {user_id} set event status to {event_status}")
         return api_success(event_status=event_status)
     except Exception:
-        logger.exception("Error toggling event status")
+        logger.exception(f"Error toggling event status for user {user_id}")
         return api_error("Failed to update event status", 500)
 
 
@@ -446,7 +447,7 @@ def api_user_data() -> Response | tuple[Response, int]:
         vip_status = db.get_user_vip_status(user_id)
         balance = db.get_user_bp_balance(user_id)
         completed_activities = db.get_user_completed_activities(user_id, today)
-        event_active = is_event_active(db)
+        event_active = is_event_active(db, user_id)
 
         return api_success(
             vip_status=vip_status,
@@ -469,7 +470,7 @@ def api_activity_bp_values() -> Response | tuple[Response, int]:
     try:
         today = get_today_date()
         vip_status = db.get_user_vip_status(user_id)
-        event_active = is_event_active(db)
+        event_active = is_event_active(db, user_id)
         completed_activities = set(db.get_user_completed_activities(user_id, today))
 
         # Calculate BP values for all activities
@@ -506,7 +507,7 @@ def api_user_stats() -> Response | tuple[Response, int]:
     try:
         today = get_today_date()
         vip_status = db.get_user_vip_status(user_id)
-        event_active = is_event_active(db)
+        event_active = is_event_active(db, user_id)
         balance = db.get_user_bp_balance(user_id)
         completed_activities = set(db.get_user_completed_activities(user_id, today))
 

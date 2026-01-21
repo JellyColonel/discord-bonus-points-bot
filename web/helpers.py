@@ -93,7 +93,7 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
                 return jsonify(
                     {
                         "success": False,
-                        "error": "Слишком много запросов. Пожалуйста, подождите немного.",
+                        "error": "Ð¡Ð»Ð¸ÑˆÐºÐ¾Ð¼ Ð¼Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð². ÐŸÐ¾Ð¶Ð°Ð»ÑƒÐ¹ÑÑ‚Ð°, Ð¿Ð¾Ð´Ð¾Ð¶Ð´Ð¸Ñ‚Ðµ Ð½ÐµÐ¼Ð½Ð¾Ð³Ð¾.",
                     }
                 ), 429
 
@@ -116,20 +116,17 @@ def get_rate_limit_stats() -> Dict[str, int]:
     }
 
 
-def is_event_active(db: Database) -> bool:
-    """Check if double BP event is currently active.
-
-    Note: This queries the database. If calling multiple times in same request,
-    fetch once and reuse the boolean value.
+def is_event_active(db: Database, user_id: int) -> bool:
+    """Check if x2 BP event is active for a specific user.
 
     Args:
         db: Database instance
+        user_id: User's Discord ID
 
     Returns:
-        True if x2 BP event is active, False otherwise
+        True if x2 BP event is active for this user, False otherwise
     """
-    event_active = db.get_setting("double_bp_event", "False")
-    return event_active == "True"
+    return db.get_user_event_status(user_id)
 
 
 def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
@@ -165,7 +162,7 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     balance = db.get_user_bp_balance(user_id)
     completed_activities_list = db.get_user_completed_activities(user_id, today)
     completed_activities_set = set(completed_activities_list)
-    event_active = is_event_active(db)
+    event_active = is_event_active(db, user_id)
 
     # Prepare activities by category
     activities_by_category = _build_activities_by_category(

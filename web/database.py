@@ -131,12 +131,13 @@ class Database:
         try:
             cursor = conn.cursor()
 
-            # Users table with bp_balance column
+            # Users table with bp_balance and event_active columns
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     user_id TEXT PRIMARY KEY,
                     vip_status INTEGER DEFAULT 0,
-                    bp_balance INTEGER DEFAULT 0
+                    bp_balance INTEGER DEFAULT 0,
+                    event_active INTEGER DEFAULT 0
                 )
             """)
             logger.debug("Users table created/verified")
@@ -150,6 +151,16 @@ class Database:
             except sqlite3.OperationalError:
                 # Column already exists
                 logger.debug("bp_balance column already exists")
+
+            # Try to add event_active column to existing users table
+            try:
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN event_active INTEGER DEFAULT 0"
+                )
+                logger.info("Added event_active column to users table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                logger.debug("event_active column already exists")
 
             # Activities table
             cursor.execute("""
@@ -188,19 +199,19 @@ class Database:
 
             # Primary lookup index - covers most queries
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_lookup 
+                CREATE INDEX IF NOT EXISTS idx_activities_lookup
                 ON activities(user_id, date, activity_id)
             """)
 
             # Specialized index for finding completed activities
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_completed 
+                CREATE INDEX IF NOT EXISTS idx_activities_completed
                 ON activities(user_id, date) WHERE completed = 1
             """)
 
             # Index for date-based queries (cleanup)
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_date 
+                CREATE INDEX IF NOT EXISTS idx_activities_date
                 ON activities(date)
             """)
 
@@ -239,6 +250,30 @@ class Database:
                 ON CONFLICT(user_id) DO UPDATE SET vip_status = ?
             """,
                 (str(user_id), int(vip_status), int(vip_status)),
+            )
+
+    # User Event methods
+    def get_user_event_status(self, user_id: int) -> bool:
+        """Get user's x2 event status."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT event_active FROM users WHERE user_id = ?", (str(user_id),)
+            )
+            result = cursor.fetchone()
+            event_active = bool(result[0]) if result else False
+            logger.debug(f"User {user_id} event status: {event_active}")
+            return event_active
+
+    def set_user_event_status(self, user_id: int, event_active: bool) -> None:
+        """Set user's x2 event status."""
+        logger.info(f"Setting event status for user {user_id}: {event_active}")
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (user_id, event_active) VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET event_active = ?
+            """,
+                (str(user_id), int(event_active), int(event_active)),
             )
 
     # BP Balance methods
@@ -299,7 +334,7 @@ class Database:
         with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
-                SELECT completed FROM activities 
+                SELECT completed FROM activities
                 WHERE user_id = ? AND activity_id = ? AND date = ?
             """,
                 (str(user_id), activity_id, date),
@@ -325,7 +360,7 @@ class Database:
                 """
                 INSERT INTO activities (user_id, activity_id, date, completed, completed_at)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(user_id, activity_id, date) 
+                ON CONFLICT(user_id, activity_id, date)
                 DO UPDATE SET completed = ?, completed_at = ?
             """,
                 (
@@ -347,7 +382,7 @@ class Database:
         with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
-                SELECT activity_id FROM activities 
+                SELECT activity_id FROM activities
                 WHERE user_id = ? AND date = ? AND completed = 1
                 ORDER BY completed_at DESC NULLS LAST
             """,
