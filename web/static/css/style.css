@@ -9,6 +9,7 @@
 }
 
 :root {
+    /* Colors */
     --primary-color: #5865F2;
     --secondary-color: #3BA55D;
     --danger-color: #ED4245;
@@ -23,6 +24,13 @@
     --vip-color: #E5E4E2;
     --vip-platinum: #E5E4E2;
     --vip-platinum-dark: #C0C0C0;
+
+    /* Shadows */
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-primary: 0 4px 12px rgba(88, 101, 242, 0.4);
+    --shadow-success: 0 4px 12px rgba(59, 165, 93, 0.2);
 }
 
 body {
@@ -105,7 +113,7 @@ body {
 .btn-primary:hover {
     background: #4752C4;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+    box-shadow: var(--shadow-primary);
 }
 
 .btn-secondary {
@@ -203,7 +211,7 @@ body {
     border-radius: 12px;
     padding: 24px 20px 20px 20px;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -715,7 +723,7 @@ body {
 
 .activity-card.completed:hover {
     border-color: var(--success);
-    box-shadow: 0 4px 12px rgba(59, 165, 93, 0.2);
+    box-shadow: var(--shadow-success);
 }
 
 .activity-header {

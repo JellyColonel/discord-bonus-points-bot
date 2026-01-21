@@ -2,17 +2,26 @@
 
 import logging
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_wtf.csrf import CSRFProtect
 
 from flask_session import Session
-from web.activities import ACTIVITIES, get_activity_by_id, get_all_activities
+from web.activities import get_activity_by_id, get_all_activities
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth
 from web.config import WebConfig
 
 # Local imports (no bot dependency)
 from web.database import Database, get_today_date
-from web.helpers import calculate_bp, is_event_active
+from web.helpers import calculate_bp, is_event_active, prepare_dashboard_data
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +43,7 @@ logger.info(f"Web dashboard using database: {WebConfig.DB_PATH}")
 
 
 @app.route("/")
-def index():
+def index() -> Response:
     """Landing page - redirect to dashboard if logged in, otherwise show login."""
     if "user" in session:
         return redirect(url_for("dashboard"))
@@ -42,7 +51,7 @@ def index():
 
 
 @app.route("/login")
-def login():
+def login() -> Response | str:
     """Login page with Discord OAuth2."""
     if "user" in session:
         return redirect(url_for("dashboard"))
@@ -52,7 +61,7 @@ def login():
 
 
 @app.route("/callback")
-def callback():
+def callback() -> Response | tuple[str, int]:
     """OAuth2 callback handler."""
     code = request.args.get("code")
 
@@ -89,7 +98,7 @@ def callback():
 
 
 @app.route("/logout")
-def logout():
+def logout() -> Response:
     """Logout and clear session."""
     if "user" in session:
         logger.info(f"User {session['user']['username']} logged out")
@@ -104,77 +113,26 @@ def logout():
 
 @app.route("/dashboard")
 @require_auth
-def dashboard():
+def dashboard() -> str:
     """Main dashboard page."""
     user = session["user"]
     user_id = int(user["id"])
-    today = get_today_date()
 
-    # Get user data
-    vip_status = db.get_user_vip_status(user_id)
-    balance = db.get_user_bp_balance(user_id)
-    completed_activities_list = db.get_user_completed_activities(
-        user_id, today
-    )  # Keep as list to preserve order
-    completed_activities_set = set(
-        completed_activities_list
-    )  # Also keep as set for fast lookup
-    event_active = is_event_active(db)
-
-    # Prepare activities by category with completion status
-    activities_by_category = {}
-    total_earned = 0
-    total_remaining = 0
-
-    # Create a lookup dict for all activities by ID
-    all_activities_dict = {}
-    for category, activities in ACTIVITIES.items():
-        for activity in activities:
-            all_activities_dict[activity["id"]] = {**activity, "category": category}
-
-    for category, activities in ACTIVITIES.items():
-        activities_with_status = []
-
-        # First, add completed activities in database order (most recent first)
-        for activity_id in completed_activities_list:
-            activity = all_activities_dict.get(activity_id)
-            if activity and activity["category"] == category:
-                bp_value = calculate_bp(activity, vip_status, event_active)
-                total_earned += bp_value
-                activities_with_status.append(
-                    {**activity, "completed": True, "bp_value": bp_value}
-                )
-
-        # Then, add uncompleted activities in config order
-        for activity in activities:
-            if activity["id"] not in completed_activities_set:
-                bp_value = calculate_bp(activity, vip_status, event_active)
-                total_remaining += bp_value
-                activities_with_status.append(
-                    {**activity, "completed": False, "bp_value": bp_value}
-                )
-
-        activities_by_category[category] = activities_with_status
-
-    # Calculate progress
-    total_activities = len(get_all_activities())
-    completed_count = len(completed_activities_list)
-    progress_percentage = (
-        int((completed_count / total_activities) * 100) if total_activities > 0 else 0
-    )
+    # Get all dashboard data
+    data = prepare_dashboard_data(db, user_id)
 
     return render_template(
         "dashboard.html",
         user=user,
-        activities=activities_by_category,
-        vip_status=vip_status,
-        balance=balance,
-        total_earned=total_earned,
-        total_remaining=total_remaining,
-        completed_count=completed_count,
-        total_activities=total_activities,
-        progress_percentage=progress_percentage,
-        event_active=event_active,
+        activities=data["activities_by_category"],
+        vip_status=data["vip_status"],
+        balance=data["balance"],
+        total_earned=data["total_earned"],
+        total_remaining=data["total_remaining"],
+        completed_count=data["completed_count"],
+        total_activities=data["total_activities"],
+        progress_percentage=data["progress_percentage"],
+        event_active=data["event_active"],
     )
 
 
@@ -185,7 +143,7 @@ def dashboard():
 
 @app.route("/api/toggle_activity", methods=["POST"])
 @require_auth
-def api_toggle_activity():
+def api_toggle_activity() -> Response | tuple[Response, int]:
     """Toggle activity completion status."""
     user_id = int(session["user"]["id"])
     data = request.json
@@ -228,7 +186,7 @@ def api_toggle_activity():
 
 @app.route("/api/set_balance", methods=["POST"])
 @require_auth
-def api_set_balance():
+def api_set_balance() -> Response | tuple[Response, int]:
     """Set user balance."""
     user_id = int(session["user"]["id"])
     data = request.json
@@ -257,7 +215,7 @@ def api_set_balance():
 
 @app.route("/api/toggle_vip", methods=["POST"])
 @require_auth
-def api_toggle_vip():
+def api_toggle_vip() -> Response:
     """Toggle VIP status."""
     user_id = int(session["user"]["id"])
     data = request.json
@@ -272,7 +230,7 @@ def api_toggle_vip():
 
 @app.route("/api/toggle_event", methods=["POST"])
 @require_auth
-def api_toggle_event():
+def api_toggle_event() -> Response:
     """Toggle x2 BP event status (admin function)."""
     data = request.json
     event_status = data.get("event_status", False)
@@ -285,7 +243,7 @@ def api_toggle_event():
 
 @app.route("/api/user_data", methods=["GET"])
 @require_auth
-def api_user_data():
+def api_user_data() -> Response:
     """Get current user data (for refreshing dashboard)."""
     user_id = int(session["user"]["id"])
     today = get_today_date()
@@ -307,7 +265,7 @@ def api_user_data():
 
 @app.route("/api/activity_bp_values", methods=["GET"])
 @require_auth
-def api_activity_bp_values():
+def api_activity_bp_values() -> Response:
     """Get all activity BP values with current VIP/event status."""
     user_id = int(session["user"]["id"])
     today = get_today_date()
@@ -341,7 +299,7 @@ def api_activity_bp_values():
 
 @app.route("/api/user_stats", methods=["GET"])
 @require_auth
-def api_user_stats():
+def api_user_stats() -> Response:
     """Get user statistics (balance, earned, remaining, progress)."""
     user_id = int(session["user"]["id"])
     today = get_today_date()
@@ -376,7 +334,7 @@ def api_user_stats():
 
 
 @app.before_request
-def refresh_session():
+def refresh_session() -> None:
     session.modified = True
 
 
@@ -385,10 +343,10 @@ def refresh_session():
 # ============================================================================
 
 
-def run_web():
+def run_web() -> None:
     """Run the Flask web server."""
     logger.info("=" * 80)
-    logger.info("Ã°Å¸Å¡â‚¬ Starting Bonus Points Web Dashboard...")
+    logger.info("Starting Bonus Points Web Dashboard...")
     logger.info(f"   Host: {WebConfig.HOST}")
     logger.info(f"   Port: {WebConfig.PORT}")
     logger.info(f"   Database: {WebConfig.DB_PATH}")

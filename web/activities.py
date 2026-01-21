@@ -279,17 +279,12 @@ _ACTIVITIES_BY_ID_CACHE = None
 
 
 def _initialize_caches() -> None:
-    """Initialize caches and pre-compute search fields."""
+    """Initialize caches for fast activity lookups."""
     global _ALL_ACTIVITIES_CACHE, _ACTIVITIES_BY_ID_CACHE
 
     _ALL_ACTIVITIES_CACHE = []
     for category_activities in ACTIVITIES.values():
         _ALL_ACTIVITIES_CACHE.extend(category_activities)
-
-    # Pre-lowercase for faster search
-    for activity in _ALL_ACTIVITIES_CACHE:
-        activity["_name_lower"] = activity["name"].lower()
-        activity["_id_lower"] = activity["id"].lower()
 
     # O(1) lookup dictionary
     _ACTIVITIES_BY_ID_CACHE = {
@@ -310,23 +305,3 @@ def get_all_activities() -> List[Activity]:
 def get_activity_by_id(activity_id: str) -> Optional[Activity]:
     """Find activity by ID. O(1) dictionary lookup."""
     return _ACTIVITIES_BY_ID_CACHE.get(activity_id)
-
-
-def search_activities(query: str, max_results: int = 25) -> List[Activity]:
-    """Search activities by name or ID (uses pre-lowercased fields)."""
-    if not query:
-        return _ALL_ACTIVITIES_CACHE[:max_results]
-
-    query_lower = query.lower()
-    results = []
-
-    for activity in _ALL_ACTIVITIES_CACHE:
-        if len(results) >= max_results:
-            break
-        if (
-            query_lower in activity["_name_lower"]
-            or query_lower in activity["_id_lower"]
-        ):
-            results.append(activity)
-
-    return results

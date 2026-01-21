@@ -153,8 +153,6 @@ async function toggleVIP() {
     vipBadge.style.pointerEvents = 'none';
     
     try {
-        // Get current VIP status from badge
-        const vipBadge = document.getElementById('vip-badge');
         const currentVIP = vipBadge.classList.contains('badge-vip');
         const newVIP = !currentVIP;
         

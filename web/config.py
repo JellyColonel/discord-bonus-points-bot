@@ -40,3 +40,23 @@ class WebConfig:
     # Database path
     ROOT_DIR = Path(__file__).parent.parent
     DB_PATH = ROOT_DIR / "data" / "bonus_points.db"
+
+    @classmethod
+    def validate(cls):
+        """Validate required configuration on startup."""
+        required = {
+            "SECRET_KEY": cls.SECRET_KEY,
+            "DISCORD_CLIENT_ID": cls.DISCORD_CLIENT_ID,
+            "DISCORD_CLIENT_SECRET": cls.DISCORD_CLIENT_SECRET,
+            "DISCORD_REDIRECT_URI": cls.DISCORD_REDIRECT_URI,
+        }
+        missing = [key for key, value in required.items() if not value]
+        if missing:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}\n"
+                f"Please check your .env file. See .env.example for reference."
+            )
+
+
+# Validate configuration on import
+WebConfig.validate()

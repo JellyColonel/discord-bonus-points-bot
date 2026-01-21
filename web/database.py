@@ -2,8 +2,9 @@
 
 import logging
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
-from typing import List, Optional
+from typing import Generator, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,29 @@ class Database:
         conn.execute("PRAGMA temp_store=MEMORY")
 
         return conn
+
+    @contextmanager
+    def get_cursor(self, commit: bool = True) -> Generator[sqlite3.Cursor, None, None]:
+        """Context manager for database operations.
+
+        Args:
+            commit: Whether to commit after operations (default True).
+                   Set to False for read-only operations.
+
+        Yields:
+            sqlite3.Cursor: Database cursor for executing queries.
+        """
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            yield cursor
+            if commit:
+                conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def init_db(self) -> None:
         """Initialize database tables."""
@@ -128,8 +152,7 @@ class Database:
     # User VIP methods
     def get_user_vip_status(self, user_id: int) -> bool:
         """Get user's VIP status."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 "SELECT vip_status FROM users WHERE user_id = ?", (str(user_id),)
             )
@@ -141,8 +164,7 @@ class Database:
     def set_user_vip_status(self, user_id: int, vip_status: bool) -> None:
         """Set user's VIP status."""
         logger.info(f"Setting VIP status for user {user_id}: {vip_status}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO users (user_id, vip_status) VALUES (?, ?)
@@ -150,13 +172,11 @@ class Database:
             """,
                 (str(user_id), int(vip_status), int(vip_status)),
             )
-            conn.commit()
 
     # BP Balance methods
     def get_user_bp_balance(self, user_id: int) -> int:
         """Get user's current BP balance."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 "SELECT bp_balance FROM users WHERE user_id = ?", (str(user_id),)
             )
@@ -168,8 +188,7 @@ class Database:
     def set_user_bp_balance(self, user_id: int, balance: int) -> None:
         """Set user's BP balance."""
         logger.info(f"Setting balance for user {user_id}: {balance} BP")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO users (user_id, bp_balance) VALUES (?, ?)
@@ -177,7 +196,6 @@ class Database:
             """,
                 (str(user_id), int(balance), int(balance)),
             )
-            conn.commit()
 
     def add_user_bp(self, user_id: int, amount: int) -> int:
         """Add BP to user's balance."""
@@ -185,7 +203,7 @@ class Database:
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} earned {amount} BP (Balance: {current_balance} -> {new_balance})"
         )
         return new_balance
 
@@ -195,15 +213,14 @@ class Database:
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} lost {amount} BP (Balance: {current_balance} -> {new_balance})"
         )
         return new_balance
 
     # Activity methods
     def get_activity_status(self, user_id: int, activity_id: str, date: str) -> bool:
         """Check if an activity is completed."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
                 SELECT completed FROM activities 
@@ -225,8 +242,7 @@ class Database:
         logger.info(
             f"User {user_id} {'completed' if completed else 'uncompleted'} activity {activity_id} on {date}"
         )
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             # Set completed_at to current UTC time when completing, NULL when uncompleting
             completed_at = datetime.now(timezone.utc).isoformat() if completed else None
             cursor.execute(
@@ -246,12 +262,10 @@ class Database:
                     completed_at,
                 ),
             )
-            conn.commit()
 
     def get_user_completed_activities(self, user_id: int, date: str) -> List[str]:
         """Get list of completed activities for a user on a specific date, sorted by completion time (most recent first)."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
                 SELECT activity_id FROM activities 
@@ -270,8 +284,7 @@ class Database:
     # Settings methods
     def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get a setting value from database."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
             result = cursor.fetchone()
             value = result[0] if result else default
@@ -281,8 +294,7 @@ class Database:
     def set_setting(self, key: str, value: str) -> None:
         """Set a setting value in database."""
         logger.info(f"Setting {key} = {value}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO settings (key, value) VALUES (?, ?)
@@ -290,7 +302,6 @@ class Database:
             """,
                 (key, str(value), str(value)),
             )
-            conn.commit()
 
     def optimize_database(self) -> None:
         """Run VACUUM and ANALYZE to optimize database performance."""
@@ -306,8 +317,8 @@ def get_today_date() -> str:
     Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
     Returns the "activity day" which continues until 04:00 UTC:
-    - From 00:00 to 03:59 UTC â†’ Returns YESTERDAY's date (activities still valid)
-    - From 04:00 to 23:59 UTC â†’ Returns TODAY's date (new activity day)
+    - From 00:00 to 03:59 UTC -> Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC -> Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
     between 00:00-04:00 UTC before the actual daily reset runs.
