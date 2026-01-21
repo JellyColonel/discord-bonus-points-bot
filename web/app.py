@@ -37,6 +37,38 @@ csrf = CSRFProtect(app)
 db = Database(str(WebConfig.DB_PATH))
 logger.info(f"Web dashboard using database: {WebConfig.DB_PATH}")
 
+
+@app.teardown_appcontext
+def close_db_connection(exception=None):
+    """Close database connection at the end of each request."""
+    db.close_connection()
+
+
+# ============================================================================
+# API Response Helpers
+# ============================================================================
+
+
+def api_success(**data) -> Response:
+    """Return a standardized API success response.
+
+    Example:
+        return api_success(balance=100, message="Updated")
+        # Returns: {"success": true, "balance": 100, "message": "Updated"}
+    """
+    return jsonify({"success": True, **data})
+
+
+def api_error(message: str, status_code: int = 400) -> tuple[Response, int]:
+    """Return a standardized API error response.
+
+    Example:
+        return api_error("Invalid amount", 400)
+        # Returns: {"success": false, "error": "Invalid amount"}, 400
+    """
+    return jsonify({"success": False, "error": message}), status_code
+
+
 # ============================================================================
 # Authentication Routes
 # ============================================================================
@@ -148,40 +180,44 @@ def api_toggle_activity() -> Response | tuple[Response, int]:
     user_id = int(session["user"]["id"])
     data = request.json
 
+    if not data:
+        return api_error("Missing request body")
+
     activity_id = data.get("activity_id")
     completed = data.get("completed", False)
 
     if not activity_id:
-        return jsonify({"error": "Missing activity_id"}), 400
+        return api_error("Missing activity_id")
 
     activity = get_activity_by_id(activity_id)
     if not activity:
-        return jsonify({"error": "Activity not found"}), 404
+        return api_error("Activity not found", 404)
 
-    today = get_today_date()
+    try:
+        today = get_today_date()
 
-    # Update activity status
-    db.set_activity_status(user_id, activity_id, today, completed)
+        # Update activity status
+        db.set_activity_status(user_id, activity_id, today, completed)
 
-    # Update balance
-    vip_status = db.get_user_vip_status(user_id)
-    event_active = is_event_active(db)
-    bp = calculate_bp(activity, vip_status, event_active)
+        # Update balance
+        vip_status = db.get_user_vip_status(user_id)
+        event_active = is_event_active(db)
+        bp = calculate_bp(activity, vip_status, event_active)
 
-    if completed:
-        new_balance = db.add_user_bp(user_id, bp)
-        logger.info(f"User {user_id} completed {activity_id}: +{bp} BP")
-    else:
-        new_balance = db.subtract_user_bp(user_id, bp)
-        logger.info(f"User {user_id} uncompleted {activity_id}: -{bp} BP")
+        if completed:
+            new_balance = db.add_user_bp(user_id, bp)
+            logger.info(f"User {user_id} completed {activity_id}: +{bp} BP")
+        else:
+            new_balance = db.subtract_user_bp(user_id, bp)
+            logger.info(f"User {user_id} uncompleted {activity_id}: -{bp} BP")
 
-    return jsonify(
-        {
-            "success": True,
-            "new_balance": new_balance,
-            "bp_change": bp if completed else -bp,
-        }
-    )
+        return api_success(
+            new_balance=new_balance,
+            bp_change=bp if completed else -bp,
+        )
+    except Exception:
+        logger.exception(f"Error toggling activity {activity_id} for user {user_id}")
+        return api_error("Failed to update activity", 500)
 
 
 @app.route("/api/set_balance", methods=["POST"])
@@ -191,146 +227,171 @@ def api_set_balance() -> Response | tuple[Response, int]:
     user_id = int(session["user"]["id"])
     data = request.json
 
+    if not data:
+        return api_error("Missing request body")
+
     amount = data.get("amount")
 
     if amount is None:
-        return jsonify({"error": "Missing amount"}), 400
+        return api_error("Missing amount")
 
     try:
         amount = int(amount)
-    except ValueError:
-        return jsonify({"error": "Invalid amount"}), 400
+    except (ValueError, TypeError):
+        return api_error("Invalid amount")
 
     if amount < 0:
-        return jsonify({"error": "Amount cannot be negative"}), 400
+        return api_error("Amount cannot be negative")
 
     if amount > 1000000:
-        return jsonify({"error": "Amount cannot exceed 1,000,000"}), 400
+        return api_error("Amount cannot exceed 1,000,000")
 
-    db.set_user_bp_balance(user_id, amount)
-    logger.info(f"User {user_id} set balance to {amount} BP")
-
-    return jsonify({"success": True, "new_balance": amount})
+    try:
+        db.set_user_bp_balance(user_id, amount)
+        logger.info(f"User {user_id} set balance to {amount} BP")
+        return api_success(new_balance=amount)
+    except Exception:
+        logger.exception(f"Error setting balance for user {user_id}")
+        return api_error("Failed to update balance", 500)
 
 
 @app.route("/api/toggle_vip", methods=["POST"])
 @require_auth
-def api_toggle_vip() -> Response:
+def api_toggle_vip() -> Response | tuple[Response, int]:
     """Toggle VIP status."""
     user_id = int(session["user"]["id"])
     data = request.json
 
-    vip_status = data.get("vip_status", False)
+    if not data:
+        return api_error("Missing request body")
 
-    db.set_user_vip_status(user_id, vip_status)
-    logger.info(f"User {user_id} set VIP status to {vip_status}")
+    vip_status = bool(data.get("vip_status", False))
 
-    return jsonify({"success": True, "vip_status": vip_status})
+    try:
+        db.set_user_vip_status(user_id, vip_status)
+        logger.info(f"User {user_id} set VIP status to {vip_status}")
+        return api_success(vip_status=vip_status)
+    except Exception:
+        logger.exception(f"Error toggling VIP for user {user_id}")
+        return api_error("Failed to update VIP status", 500)
 
 
 @app.route("/api/toggle_event", methods=["POST"])
 @require_auth
-def api_toggle_event() -> Response:
+def api_toggle_event() -> Response | tuple[Response, int]:
     """Toggle x2 BP event status (admin function)."""
     data = request.json
-    event_status = data.get("event_status", False)
 
-    db.set_setting("double_bp_event", str(event_status))
-    logger.info(f"Event status set to {event_status}")
+    if not data:
+        return api_error("Missing request body")
 
-    return jsonify({"success": True, "event_status": event_status})
+    event_status = bool(data.get("event_status", False))
+
+    try:
+        db.set_setting("double_bp_event", str(event_status))
+        logger.info(f"Event status set to {event_status}")
+        return api_success(event_status=event_status)
+    except Exception:
+        logger.exception("Error toggling event status")
+        return api_error("Failed to update event status", 500)
 
 
 @app.route("/api/user_data", methods=["GET"])
 @require_auth
-def api_user_data() -> Response:
+def api_user_data() -> Response | tuple[Response, int]:
     """Get current user data (for refreshing dashboard)."""
     user_id = int(session["user"]["id"])
-    today = get_today_date()
 
-    vip_status = db.get_user_vip_status(user_id)
-    balance = db.get_user_bp_balance(user_id)
-    completed_activities = db.get_user_completed_activities(user_id, today)
-    event_active = is_event_active(db)
+    try:
+        today = get_today_date()
+        vip_status = db.get_user_vip_status(user_id)
+        balance = db.get_user_bp_balance(user_id)
+        completed_activities = db.get_user_completed_activities(user_id, today)
+        event_active = is_event_active(db)
 
-    return jsonify(
-        {
-            "vip_status": vip_status,
-            "balance": balance,
-            "completed_activities": completed_activities,
-            "event_active": event_active,
-        }
-    )
+        return api_success(
+            vip_status=vip_status,
+            balance=balance,
+            completed_activities=completed_activities,
+            event_active=event_active,
+        )
+    except Exception:
+        logger.exception(f"Error fetching user data for user {user_id}")
+        return api_error("Failed to fetch user data", 500)
 
 
 @app.route("/api/activity_bp_values", methods=["GET"])
 @require_auth
-def api_activity_bp_values() -> Response:
+def api_activity_bp_values() -> Response | tuple[Response, int]:
     """Get all activity BP values with current VIP/event status."""
     user_id = int(session["user"]["id"])
-    today = get_today_date()
 
-    vip_status = db.get_user_vip_status(user_id)
-    event_active = is_event_active(db)
-    completed_activities = set(db.get_user_completed_activities(user_id, today))
+    try:
+        today = get_today_date()
+        vip_status = db.get_user_vip_status(user_id)
+        event_active = is_event_active(db)
+        completed_activities = set(db.get_user_completed_activities(user_id, today))
 
-    # Calculate BP values for all activities
-    activity_bp_values = {}
-    total_earned = 0
-    total_remaining = 0
+        # Calculate BP values for all activities
+        activity_bp_values = {}
+        total_earned = 0
+        total_remaining = 0
 
-    for activity in get_all_activities():
-        bp_value = calculate_bp(activity, vip_status, event_active)
-        activity_bp_values[activity["id"]] = bp_value
+        for activity in get_all_activities():
+            bp_value = calculate_bp(activity, vip_status, event_active)
+            activity_bp_values[activity["id"]] = bp_value
 
-        if activity["id"] in completed_activities:
-            total_earned += bp_value
-        else:
-            total_remaining += bp_value
+            if activity["id"] in completed_activities:
+                total_earned += bp_value
+            else:
+                total_remaining += bp_value
 
-    return jsonify(
-        {
-            "activities": activity_bp_values,
-            "total_earned": total_earned,
-            "total_remaining": total_remaining,
-        }
-    )
+        return api_success(
+            activities=activity_bp_values,
+            total_earned=total_earned,
+            total_remaining=total_remaining,
+        )
+    except Exception:
+        logger.exception(f"Error fetching activity BP values for user {user_id}")
+        return api_error("Failed to fetch activity values", 500)
 
 
 @app.route("/api/user_stats", methods=["GET"])
 @require_auth
-def api_user_stats() -> Response:
+def api_user_stats() -> Response | tuple[Response, int]:
     """Get user statistics (balance, earned, remaining, progress)."""
     user_id = int(session["user"]["id"])
-    today = get_today_date()
 
-    vip_status = db.get_user_vip_status(user_id)
-    event_active = is_event_active(db)
-    balance = db.get_user_bp_balance(user_id)
-    completed_activities = set(db.get_user_completed_activities(user_id, today))
+    try:
+        today = get_today_date()
+        vip_status = db.get_user_vip_status(user_id)
+        event_active = is_event_active(db)
+        balance = db.get_user_bp_balance(user_id)
+        completed_activities = set(db.get_user_completed_activities(user_id, today))
 
-    total_earned = 0
-    total_remaining = 0
+        total_earned = 0
+        total_remaining = 0
 
-    for activity in get_all_activities():
-        bp_value = calculate_bp(activity, vip_status, event_active)
-        if activity["id"] in completed_activities:
-            total_earned += bp_value
-        else:
-            total_remaining += bp_value
+        for activity in get_all_activities():
+            bp_value = calculate_bp(activity, vip_status, event_active)
+            if activity["id"] in completed_activities:
+                total_earned += bp_value
+            else:
+                total_remaining += bp_value
 
-    total_activities = len(get_all_activities())
-    completed_count = len(completed_activities)
+        total_activities = len(get_all_activities())
+        completed_count = len(completed_activities)
 
-    return jsonify(
-        {
-            "balance": balance,
-            "total_earned": total_earned,
-            "total_remaining": total_remaining,
-            "completed_count": completed_count,
-            "total_activities": total_activities,
-        }
-    )
+        return api_success(
+            balance=balance,
+            total_earned=total_earned,
+            total_remaining=total_remaining,
+            completed_count=completed_count,
+            total_activities=total_activities,
+        )
+    except Exception:
+        logger.exception(f"Error fetching user stats for user {user_id}")
+        return api_error("Failed to fetch user stats", 500)
 
 
 @app.before_request

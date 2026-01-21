@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
 from typing import Generator, List, Optional
@@ -10,17 +11,27 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    """Handles all database operations for the web dashboard."""
+    """Handles all database operations for the web dashboard.
+
+    Uses thread-local connections for efficient connection reuse.
+    Each thread gets its own connection that persists across operations.
+    """
 
     def __init__(self, db_path: str = "bonus_points.db"):
         self.db_path = db_path
+        self._local = threading.local()
+        self._lock = threading.Lock()
         logger.info(f"Initializing database at: {db_path}")
         self.init_db()
         logger.info("Database initialization complete")
 
-    def get_connection(self) -> sqlite3.Connection:
-        """Get a database connection with performance optimizations."""
-        conn = sqlite3.connect(self.db_path)
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create a new database connection with performance optimizations."""
+        conn = sqlite3.connect(
+            self.db_path,
+            check_same_thread=False,  # Safe because we use thread-local storage
+            timeout=30.0,  # Wait up to 30s for locks
+        )
 
         # Write-Ahead Logging mode - better concurrency
         conn.execute("PRAGMA journal_mode=WAL")
@@ -34,11 +45,49 @@ class Database:
         # Use memory for temporary tables
         conn.execute("PRAGMA temp_store=MEMORY")
 
+        # Enable foreign keys (good practice)
+        conn.execute("PRAGMA foreign_keys=ON")
+
+        return conn
+
+    def get_connection(self) -> sqlite3.Connection:
+        """Get a thread-local database connection.
+
+        Returns an existing connection for this thread if available,
+        otherwise creates a new one. Connections are reused within
+        the same thread for better performance.
+        """
+        # Check if this thread already has a connection
+        conn = getattr(self._local, "connection", None)
+
+        if conn is not None:
+            # Verify connection is still valid
+            try:
+                conn.execute("SELECT 1")
+                return conn
+            except sqlite3.Error:
+                # Connection is broken, close it and create a new one
+                logger.warning("Thread-local connection was broken, recreating")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = None
+
+        # Create new connection for this thread
+        conn = self._create_connection()
+        self._local.connection = conn
+        logger.debug(
+            f"Created new connection for thread {threading.current_thread().name}"
+        )
         return conn
 
     @contextmanager
     def get_cursor(self, commit: bool = True) -> Generator[sqlite3.Cursor, None, None]:
         """Context manager for database operations.
+
+        Uses thread-local connection for efficiency. The connection is
+        reused across multiple operations within the same thread.
 
         Args:
             commit: Whether to commit after operations (default True).
@@ -48,21 +97,38 @@ class Database:
             sqlite3.Cursor: Database cursor for executing queries.
         """
         conn = self.get_connection()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             yield cursor
             if commit:
                 conn.commit()
         except Exception:
             conn.rollback()
             raise
-        finally:
-            conn.close()
+
+    def close_connection(self) -> None:
+        """Close the connection for the current thread.
+
+        Call this when a thread is done with database operations,
+        such as at the end of a request in a web application.
+        """
+        conn = getattr(self._local, "connection", None)
+        if conn is not None:
+            try:
+                conn.close()
+                logger.debug(
+                    f"Closed connection for thread {threading.current_thread().name}"
+                )
+            except Exception as e:
+                logger.warning(f"Error closing connection: {e}")
+            finally:
+                self._local.connection = None
 
     def init_db(self) -> None:
         """Initialize database tables."""
         logger.info("Creating/verifying database tables...")
-        with self.get_connection() as conn:
+        conn = self._create_connection()  # Use fresh connection for init
+        try:
             cursor = conn.cursor()
 
             # Users table with bp_balance column
@@ -147,6 +213,8 @@ class Database:
             logger.debug("Activity indexes created/verified")
 
             conn.commit()
+        finally:
+            conn.close()
         logger.info("Database tables ready")
 
     # User VIP methods
@@ -198,7 +266,11 @@ class Database:
             )
 
     def add_user_bp(self, user_id: int, amount: int) -> int:
-        """Add BP to user's balance."""
+        """Add BP to user's balance.
+
+        Note: This is not atomic - for high-concurrency scenarios,
+        consider using a single UPDATE with arithmetic.
+        """
         current_balance = self.get_user_bp_balance(user_id)
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
@@ -208,7 +280,11 @@ class Database:
         return new_balance
 
     def subtract_user_bp(self, user_id: int, amount: int) -> int:
-        """Subtract BP from user's balance."""
+        """Subtract BP from user's balance.
+
+        Note: This is not atomic - for high-concurrency scenarios,
+        consider using a single UPDATE with arithmetic.
+        """
         current_balance = self.get_user_bp_balance(user_id)
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
@@ -264,7 +340,10 @@ class Database:
             )
 
     def get_user_completed_activities(self, user_id: int, date: str) -> List[str]:
-        """Get list of completed activities for a user on a specific date, sorted by completion time (most recent first)."""
+        """Get list of completed activities for a user on a specific date.
+
+        Results are sorted by completion time (most recent first).
+        """
         with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
@@ -304,11 +383,18 @@ class Database:
             )
 
     def optimize_database(self) -> None:
-        """Run VACUUM and ANALYZE to optimize database performance."""
+        """Run VACUUM and ANALYZE to optimize database performance.
+
+        Note: VACUUM requires exclusive access, so this creates a
+        fresh connection rather than using the thread-local one.
+        """
         logger.info("Running database optimization...")
-        with self.get_connection() as conn:
+        conn = self._create_connection()
+        try:
             conn.execute("VACUUM")
             conn.execute("ANALYZE")
+        finally:
+            conn.close()
         logger.info("Database optimization complete")
 
 
