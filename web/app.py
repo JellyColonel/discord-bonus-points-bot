@@ -18,7 +18,11 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 
 from flask_session import Session
-from web.activities import get_activity_by_id, get_all_activities
+from web.activities import (
+    CATEGORIES,
+    get_activity_by_id,
+    get_all_activities,
+)
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth
 from web.config import WebConfig
 
@@ -26,8 +30,10 @@ from web.config import WebConfig
 from web.database import Database, get_today_date
 from web.helpers import (
     calculate_bp,
+    get_hidden_activity_ids,
     is_event_active,
     prepare_dashboard_data,
+    prepare_settings_data,
     rate_limit,
 )
 
@@ -142,6 +148,27 @@ def validate_activity_id(value: Any) -> tuple[bool, str]:
         return False, "Invalid activity_id format"
     if len(value) > 50:
         return False, "activity_id too long"
+    return True, ""
+
+
+def validate_category_id(value: Any) -> tuple[bool, str]:
+    """Validate category_id format.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not value:
+        return False, "Missing category_id"
+    if not isinstance(value, str):
+        return False, "category_id must be a string"
+    # Category IDs should only contain alphanumeric chars and underscores
+    if not all(c.isalnum() or c == "_" for c in value):
+        return False, "Invalid category_id format"
+    if len(value) > 50:
+        return False, "category_id too long"
+    # Check if category exists
+    if value not in CATEGORIES:
+        return False, "Category not found"
     return True, ""
 
 
@@ -279,7 +306,7 @@ def dashboard() -> str:
     return render_template(
         "dashboard.html",
         user=user,
-        activities=data["activities_by_category"],
+        activities=data["activities"],
         vip_status=data["vip_status"],
         balance=data["balance"],
         total_earned=data["total_earned"],
@@ -291,8 +318,28 @@ def dashboard() -> str:
     )
 
 
+@app.route("/settings")
+@require_auth
+def settings() -> str:
+    """Settings page for managing hidden activities and categories."""
+    user = session["user"]
+    user_id = int(user["id"])
+
+    # Get settings data
+    data = prepare_settings_data(db, user_id)
+
+    return render_template(
+        "settings.html",
+        user=user,
+        activities=data["activities"],
+        categories=data["categories"],
+        hidden_activities=data["hidden_activities"],
+        hidden_categories=data["hidden_categories"],
+    )
+
+
 # ============================================================================
-# API Routes
+# API Routes - Activity Toggle
 # ============================================================================
 
 
@@ -302,7 +349,11 @@ def dashboard() -> str:
     max_requests=60, window_seconds=60
 )  # 60 req/min - users may complete many activities
 def api_toggle_activity() -> Response | tuple[Response, int]:
-    """Toggle activity completion status."""
+    """Toggle activity completion status.
+
+    When completing: stores the BP earned at that moment (with current VIP/event status).
+    When uncompleting: uses the stored BP value to subtract (not recalculated).
+    """
     user_id = int(session["user"]["id"])
     data = request.json
 
@@ -330,28 +381,55 @@ def api_toggle_activity() -> Response | tuple[Response, int]:
     try:
         today = get_today_date()
 
-        # Update activity status
-        db.set_activity_status(user_id, activity_id, today, completed)
-
-        # Update balance
-        vip_status = db.get_user_vip_status(user_id)
-        event_active = is_event_active(db, user_id)
-        bp = calculate_bp(activity, vip_status, event_active)
-
         if completed:
+            # COMPLETING: Calculate BP at this moment and store it
+            vip_status = db.get_user_vip_status(user_id)
+            event_active = is_event_active(db, user_id)
+            bp = calculate_bp(activity, vip_status, event_active)
+
+            # Store activity with bp_earned
+            db.set_activity_status(user_id, activity_id, today, True, bp_earned=bp)
+
+            # Add BP to balance
             new_balance = db.add_user_bp(user_id, bp)
             logger.info(f"User {user_id} completed {activity_id}: +{bp} BP")
-        else:
-            new_balance = db.subtract_user_bp(user_id, bp)
-            logger.info(f"User {user_id} uncompleted {activity_id}: -{bp} BP")
 
-        return api_success(
-            new_balance=new_balance,
-            bp_change=bp if completed else -bp,
-        )
+            return api_success(
+                new_balance=new_balance,
+                bp_change=bp,
+            )
+        else:
+            # UNCOMPLETING: Use stored bp_earned value (not recalculated!)
+            stored_bp = db.get_activity_bp_earned(user_id, activity_id, today)
+
+            if stored_bp is None:
+                # Fallback for old data without bp_earned
+                vip_status = db.get_user_vip_status(user_id)
+                event_active = is_event_active(db, user_id)
+                stored_bp = calculate_bp(activity, vip_status, event_active)
+                logger.warning(
+                    f"No stored bp_earned for {activity_id}, using calculated: {stored_bp}"
+                )
+
+            # Clear activity status
+            db.set_activity_status(user_id, activity_id, today, False)
+
+            # Subtract stored BP from balance
+            new_balance = db.subtract_user_bp(user_id, stored_bp)
+            logger.info(f"User {user_id} uncompleted {activity_id}: -{stored_bp} BP")
+
+            return api_success(
+                new_balance=new_balance,
+                bp_change=-stored_bp,
+            )
     except Exception:
         logger.exception(f"Error toggling activity {activity_id} for user {user_id}")
         return api_error("Failed to update activity", 500)
+
+
+# ============================================================================
+# API Routes - Balance & Status
+# ============================================================================
 
 
 @app.route("/api/set_balance", methods=["POST"])
@@ -385,7 +463,11 @@ def api_set_balance() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_toggle_vip() -> Response | tuple[Response, int]:
-    """Toggle VIP status."""
+    """Toggle VIP status.
+
+    Note: This does NOT recalculate already-completed activities.
+    VIP status only affects future completions.
+    """
     user_id = int(session["user"]["id"])
     data = request.json
 
@@ -412,7 +494,11 @@ def api_toggle_vip() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_toggle_event() -> Response | tuple[Response, int]:
-    """Toggle x2 BP event status for the current user."""
+    """Toggle x2 BP event status for the current user.
+
+    Note: This does NOT recalculate already-completed activities.
+    Event status only affects future completions.
+    """
     user_id = int(session["user"]["id"])
     data = request.json
 
@@ -435,6 +521,160 @@ def api_toggle_event() -> Response | tuple[Response, int]:
         return api_error("Failed to update event status", 500)
 
 
+# ============================================================================
+# API Routes - Hidden Activities & Categories
+# ============================================================================
+
+
+@app.route("/api/hidden_items", methods=["GET"])
+@require_auth
+@rate_limit(max_requests=30, window_seconds=60)
+def api_hidden_items() -> Response | tuple[Response, int]:
+    """Get all hidden activities and categories for the user."""
+    user_id = int(session["user"]["id"])
+
+    try:
+        hidden_activities = db.get_hidden_activities(user_id)
+        hidden_categories = db.get_hidden_categories(user_id)
+
+        return api_success(
+            hidden_activities=hidden_activities,
+            hidden_categories=hidden_categories,
+        )
+    except Exception:
+        logger.exception(f"Error fetching hidden items for user {user_id}")
+        return api_error("Failed to fetch hidden items", 500)
+
+
+@app.route("/api/hide_activity", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=30, window_seconds=60)
+def api_hide_activity() -> Response | tuple[Response, int]:
+    """Hide an activity for the user."""
+    user_id = int(session["user"]["id"])
+    data = request.json
+
+    if not data:
+        return api_error("Missing request body")
+
+    # Validate activity_id
+    is_valid, error_msg = validate_activity_id(data.get("activity_id"))
+    if not is_valid:
+        return api_error(error_msg)
+    activity_id = data.get("activity_id")
+
+    # Check activity exists
+    if not get_activity_by_id(activity_id):
+        return api_error("Activity not found", 404)
+
+    try:
+        was_hidden = db.hide_activity(user_id, activity_id)
+        logger.info(f"User {user_id} hid activity {activity_id}")
+        return api_success(
+            activity_id=activity_id,
+            hidden=True,
+            was_already_hidden=not was_hidden,
+        )
+    except Exception:
+        logger.exception(f"Error hiding activity {activity_id} for user {user_id}")
+        return api_error("Failed to hide activity", 500)
+
+
+@app.route("/api/unhide_activity", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=30, window_seconds=60)
+def api_unhide_activity() -> Response | tuple[Response, int]:
+    """Unhide an activity for the user."""
+    user_id = int(session["user"]["id"])
+    data = request.json
+
+    if not data:
+        return api_error("Missing request body")
+
+    # Validate activity_id
+    is_valid, error_msg = validate_activity_id(data.get("activity_id"))
+    if not is_valid:
+        return api_error(error_msg)
+    activity_id = data.get("activity_id")
+
+    try:
+        was_unhidden = db.unhide_activity(user_id, activity_id)
+        logger.info(f"User {user_id} unhid activity {activity_id}")
+        return api_success(
+            activity_id=activity_id,
+            hidden=False,
+            was_already_visible=not was_unhidden,
+        )
+    except Exception:
+        logger.exception(f"Error unhiding activity {activity_id} for user {user_id}")
+        return api_error("Failed to unhide activity", 500)
+
+
+@app.route("/api/hide_category", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=30, window_seconds=60)
+def api_hide_category() -> Response | tuple[Response, int]:
+    """Hide a category for the user."""
+    user_id = int(session["user"]["id"])
+    data = request.json
+
+    if not data:
+        return api_error("Missing request body")
+
+    # Validate category_id
+    is_valid, error_msg = validate_category_id(data.get("category_id"))
+    if not is_valid:
+        return api_error(error_msg)
+    category_id = data.get("category_id")
+
+    try:
+        was_hidden = db.hide_category(user_id, category_id)
+        logger.info(f"User {user_id} hid category {category_id}")
+        return api_success(
+            category_id=category_id,
+            hidden=True,
+            was_already_hidden=not was_hidden,
+        )
+    except Exception:
+        logger.exception(f"Error hiding category {category_id} for user {user_id}")
+        return api_error("Failed to hide category", 500)
+
+
+@app.route("/api/unhide_category", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=30, window_seconds=60)
+def api_unhide_category() -> Response | tuple[Response, int]:
+    """Unhide a category for the user."""
+    user_id = int(session["user"]["id"])
+    data = request.json
+
+    if not data:
+        return api_error("Missing request body")
+
+    # Validate category_id
+    is_valid, error_msg = validate_category_id(data.get("category_id"))
+    if not is_valid:
+        return api_error(error_msg)
+    category_id = data.get("category_id")
+
+    try:
+        was_unhidden = db.unhide_category(user_id, category_id)
+        logger.info(f"User {user_id} unhid category {category_id}")
+        return api_success(
+            category_id=category_id,
+            hidden=False,
+            was_already_visible=not was_unhidden,
+        )
+    except Exception:
+        logger.exception(f"Error unhiding category {category_id} for user {user_id}")
+        return api_error("Failed to unhide category", 500)
+
+
+# ============================================================================
+# API Routes - User Data
+# ============================================================================
+
+
 @app.route("/api/user_data", methods=["GET"])
 @require_auth
 @rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
@@ -448,12 +688,16 @@ def api_user_data() -> Response | tuple[Response, int]:
         balance = db.get_user_bp_balance(user_id)
         completed_activities = db.get_user_completed_activities(user_id, today)
         event_active = is_event_active(db, user_id)
+        hidden_activities = db.get_hidden_activities(user_id)
+        hidden_categories = db.get_hidden_categories(user_id)
 
         return api_success(
             vip_status=vip_status,
             balance=balance,
             completed_activities=completed_activities,
             event_active=event_active,
+            hidden_activities=hidden_activities,
+            hidden_categories=hidden_categories,
         )
     except Exception:
         logger.exception(f"Error fetching user data for user {user_id}")
@@ -464,28 +708,53 @@ def api_user_data() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
 def api_activity_bp_values() -> Response | tuple[Response, int]:
-    """Get all activity BP values with current VIP/event status."""
+    """Get all activity BP values with current VIP/event status.
+
+    For completed activities, returns stored bp_earned values.
+    For uncompleted activities, returns calculated values based on current status.
+    """
     user_id = int(session["user"]["id"])
 
     try:
         today = get_today_date()
         vip_status = db.get_user_vip_status(user_id)
         event_active = is_event_active(db, user_id)
-        completed_activities = set(db.get_user_completed_activities(user_id, today))
 
-        # Calculate BP values for all activities
+        # Get completed activities with stored BP
+        completed_with_bp = db.get_user_completed_activities_with_bp(user_id, today)
+        completed_bp_map = {item[0]: item[1] for item in completed_with_bp}
+        completed_ids = set(completed_bp_map.keys())
+
+        # Get hidden activities
+        hidden_activity_ids = get_hidden_activity_ids(db, user_id)
+
+        # Calculate BP values for all visible activities
         activity_bp_values = {}
         total_earned = 0
         total_remaining = 0
 
         for activity in get_all_activities():
-            bp_value = calculate_bp(activity, vip_status, event_active)
-            activity_bp_values[activity["id"]] = bp_value
+            activity_id = activity["id"]
 
-            if activity["id"] in completed_activities:
+            # Skip hidden activities
+            if activity_id in hidden_activity_ids:
+                continue
+
+            if activity_id in completed_ids:
+                # Use stored BP for completed activities
+                stored_bp = completed_bp_map.get(activity_id)
+                if stored_bp is not None:
+                    bp_value = stored_bp
+                else:
+                    # Fallback for old data
+                    bp_value = calculate_bp(activity, vip_status, event_active)
                 total_earned += bp_value
             else:
+                # Calculate BP for uncompleted activities
+                bp_value = calculate_bp(activity, vip_status, event_active)
                 total_remaining += bp_value
+
+            activity_bp_values[activity_id] = bp_value
 
         return api_success(
             activities=activity_bp_values,
@@ -501,7 +770,11 @@ def api_activity_bp_values() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
 def api_user_stats() -> Response | tuple[Response, int]:
-    """Get user statistics (balance, earned, remaining, progress)."""
+    """Get user statistics (balance, earned, remaining, progress).
+
+    Only counts visible (non-hidden) activities.
+    Uses stored bp_earned for completed activities.
+    """
     user_id = int(session["user"]["id"])
 
     try:
@@ -509,27 +782,46 @@ def api_user_stats() -> Response | tuple[Response, int]:
         vip_status = db.get_user_vip_status(user_id)
         event_active = is_event_active(db, user_id)
         balance = db.get_user_bp_balance(user_id)
-        completed_activities = set(db.get_user_completed_activities(user_id, today))
+
+        # Get completed activities with stored BP
+        completed_with_bp = db.get_user_completed_activities_with_bp(user_id, today)
+        completed_bp_map = {item[0]: item[1] for item in completed_with_bp}
+        completed_ids = set(completed_bp_map.keys())
+
+        # Get hidden activities
+        hidden_activity_ids = get_hidden_activity_ids(db, user_id)
 
         total_earned = 0
         total_remaining = 0
+        visible_total = 0
+        visible_completed = 0
 
         for activity in get_all_activities():
-            bp_value = calculate_bp(activity, vip_status, event_active)
-            if activity["id"] in completed_activities:
-                total_earned += bp_value
-            else:
-                total_remaining += bp_value
+            activity_id = activity["id"]
 
-        total_activities = len(get_all_activities())
-        completed_count = len(completed_activities)
+            # Skip hidden activities
+            if activity_id in hidden_activity_ids:
+                continue
+
+            visible_total += 1
+
+            if activity_id in completed_ids:
+                visible_completed += 1
+                # Use stored BP
+                stored_bp = completed_bp_map.get(activity_id)
+                if stored_bp is not None:
+                    total_earned += stored_bp
+                else:
+                    total_earned += calculate_bp(activity, vip_status, event_active)
+            else:
+                total_remaining += calculate_bp(activity, vip_status, event_active)
 
         return api_success(
             balance=balance,
             total_earned=total_earned,
             total_remaining=total_remaining,
-            completed_count=completed_count,
-            total_activities=total_activities,
+            completed_count=visible_completed,
+            total_activities=visible_total,
         )
     except Exception:
         logger.exception(f"Error fetching user stats for user {user_id}")

@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
-from typing import Generator, List, Optional
+from typing import Generator, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +171,7 @@ class Database:
                     completed INTEGER DEFAULT 0,
                     date TEXT,
                     completed_at TEXT,
+                    bp_earned INTEGER DEFAULT NULL,
                     UNIQUE(user_id, activity_id, date)
                 )
             """)
@@ -183,6 +184,38 @@ class Database:
             except sqlite3.OperationalError:
                 # Column already exists
                 logger.debug("completed_at column already exists")
+
+            # Add bp_earned column to existing tables (Phase 2)
+            try:
+                cursor.execute(
+                    "ALTER TABLE activities ADD COLUMN bp_earned INTEGER DEFAULT NULL"
+                )
+                logger.info("Added bp_earned column to activities table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                logger.debug("bp_earned column already exists")
+
+            # Hidden activities table (Phase 2)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hidden_activities (
+                    user_id TEXT,
+                    activity_id TEXT,
+                    hidden_at TEXT,
+                    PRIMARY KEY (user_id, activity_id)
+                )
+            """)
+            logger.debug("Hidden activities table created/verified")
+
+            # Hidden categories table (Phase 2)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hidden_categories (
+                    user_id TEXT,
+                    category_id TEXT,
+                    hidden_at TEXT,
+                    PRIMARY KEY (user_id, category_id)
+                )
+            """)
+            logger.debug("Hidden categories table created/verified")
 
             # Settings table for persistent config
             cursor.execute("""
@@ -221,6 +254,18 @@ class Database:
                 ON activities(user_id, activity_id, date, completed)
             """)
 
+            # Index for hidden activities lookup
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_hidden_activities_user
+                ON hidden_activities(user_id)
+            """)
+
+            # Index for hidden categories lookup
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_hidden_categories_user
+                ON hidden_categories(user_id)
+            """)
+
             logger.debug("Activity indexes created/verified")
 
             conn.commit()
@@ -228,7 +273,10 @@ class Database:
             conn.close()
         logger.info("Database tables ready")
 
+    # =========================================================================
     # User VIP methods
+    # =========================================================================
+
     def get_user_vip_status(self, user_id: int) -> bool:
         """Get user's VIP status."""
         with self.get_cursor(commit=False) as cursor:
@@ -252,7 +300,10 @@ class Database:
                 (str(user_id), int(vip_status), int(vip_status)),
             )
 
+    # =========================================================================
     # User Event methods
+    # =========================================================================
+
     def get_user_event_status(self, user_id: int) -> bool:
         """Get user's x2 event status."""
         with self.get_cursor(commit=False) as cursor:
@@ -276,7 +327,10 @@ class Database:
                 (str(user_id), int(event_active), int(event_active)),
             )
 
+    # =========================================================================
     # BP Balance methods
+    # =========================================================================
+
     def get_user_bp_balance(self, user_id: int) -> int:
         """Get user's current BP balance."""
         with self.get_cursor(commit=False) as cursor:
@@ -328,7 +382,10 @@ class Database:
         )
         return new_balance
 
+    # =========================================================================
     # Activity methods
+    # =========================================================================
+
     def get_activity_status(self, user_id: int, activity_id: str, date: str) -> bool:
         """Check if an activity is completed."""
         with self.get_cursor(commit=False) as cursor:
@@ -347,21 +404,39 @@ class Database:
             return completed
 
     def set_activity_status(
-        self, user_id: int, activity_id: str, date: str, completed: bool
+        self,
+        user_id: int,
+        activity_id: str,
+        date: str,
+        completed: bool,
+        bp_earned: Optional[int] = None,
     ) -> None:
-        """Set activity completion status."""
+        """Set activity completion status with BP earned.
+
+        Args:
+            user_id: User's Discord ID
+            activity_id: Activity identifier
+            date: Activity date (YYYY-MM-DD)
+            completed: Whether activity is completed
+            bp_earned: BP amount earned (stored when completing, used when uncompleting)
+        """
         logger.info(
             f"User {user_id} {'completed' if completed else 'uncompleted'} activity {activity_id} on {date}"
+            + (f" (bp_earned={bp_earned})" if bp_earned is not None else "")
         )
         with self.get_cursor() as cursor:
             # Set completed_at to current UTC time when completing, NULL when uncompleting
             completed_at = datetime.now(timezone.utc).isoformat() if completed else None
+
+            # When completing, store bp_earned; when uncompleting, clear it
+            stored_bp = bp_earned if completed else None
+
             cursor.execute(
                 """
-                INSERT INTO activities (user_id, activity_id, date, completed, completed_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO activities (user_id, activity_id, date, completed, completed_at, bp_earned)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, activity_id, date)
-                DO UPDATE SET completed = ?, completed_at = ?
+                DO UPDATE SET completed = ?, completed_at = ?, bp_earned = ?
             """,
                 (
                     str(user_id),
@@ -369,10 +444,35 @@ class Database:
                     date,
                     int(completed),
                     completed_at,
+                    stored_bp,
                     int(completed),
                     completed_at,
+                    stored_bp,
                 ),
             )
+
+    def get_activity_bp_earned(
+        self, user_id: int, activity_id: str, date: str
+    ) -> Optional[int]:
+        """Get the BP earned for a specific completed activity.
+
+        Returns the stored bp_earned value, or None if not found/not completed.
+        This is used when uncompleting an activity to subtract the correct amount.
+        """
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                """
+                SELECT bp_earned FROM activities
+                WHERE user_id = ? AND activity_id = ? AND date = ? AND completed = 1
+            """,
+                (str(user_id), activity_id, date),
+            )
+            result = cursor.fetchone()
+            bp_earned = result[0] if result and result[0] is not None else None
+            logger.debug(
+                f"Activity {activity_id} bp_earned for user {user_id} on {date}: {bp_earned}"
+            )
+            return bp_earned
 
     def get_user_completed_activities(self, user_id: int, date: str) -> List[str]:
         """Get list of completed activities for a user on a specific date.
@@ -395,7 +495,171 @@ class Database:
             )
             return activity_list
 
+    def get_user_completed_activities_with_bp(
+        self, user_id: int, date: str
+    ) -> List[Tuple[str, Optional[int]]]:
+        """Get list of completed activities with their bp_earned values.
+
+        Returns list of tuples: (activity_id, bp_earned)
+        Results are sorted by completion time (most recent first).
+        """
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                """
+                SELECT activity_id, bp_earned FROM activities
+                WHERE user_id = ? AND date = ? AND completed = 1
+                ORDER BY completed_at DESC NULLS LAST
+            """,
+                (str(user_id), date),
+            )
+            results = cursor.fetchall()
+            logger.debug(
+                f"User {user_id} completed {len(results)} activities with BP on {date}"
+            )
+            return [(row[0], row[1]) for row in results]
+
+    # =========================================================================
+    # Hidden Activities methods (Phase 2)
+    # =========================================================================
+
+    def get_hidden_activities(self, user_id: int) -> List[str]:
+        """Get list of hidden activity IDs for a user."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT activity_id FROM hidden_activities WHERE user_id = ?",
+                (str(user_id),),
+            )
+            results = cursor.fetchall()
+            activity_ids = [row[0] for row in results]
+            logger.debug(f"User {user_id} has {len(activity_ids)} hidden activities")
+            return activity_ids
+
+    def hide_activity(self, user_id: int, activity_id: str) -> bool:
+        """Hide an activity for a user.
+
+        Returns True if the activity was hidden, False if already hidden.
+        """
+        logger.info(f"User {user_id} hiding activity {activity_id}")
+        with self.get_cursor() as cursor:
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO hidden_activities (user_id, activity_id, hidden_at)
+                    VALUES (?, ?, ?)
+                """,
+                    (str(user_id), activity_id, datetime.now(timezone.utc).isoformat()),
+                )
+                return True
+            except sqlite3.IntegrityError:
+                # Already hidden
+                logger.debug(
+                    f"Activity {activity_id} already hidden for user {user_id}"
+                )
+                return False
+
+    def unhide_activity(self, user_id: int, activity_id: str) -> bool:
+        """Unhide an activity for a user.
+
+        Returns True if the activity was unhidden, False if wasn't hidden.
+        """
+        logger.info(f"User {user_id} unhiding activity {activity_id}")
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM hidden_activities WHERE user_id = ? AND activity_id = ?",
+                (str(user_id), activity_id),
+            )
+            deleted = cursor.rowcount > 0
+            if not deleted:
+                logger.debug(
+                    f"Activity {activity_id} was not hidden for user {user_id}"
+                )
+            return deleted
+
+    def is_activity_hidden(self, user_id: int, activity_id: str) -> bool:
+        """Check if an activity is hidden for a user."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                """
+                SELECT 1 FROM hidden_activities
+                WHERE user_id = ? AND activity_id = ?
+            """,
+                (str(user_id), activity_id),
+            )
+            return cursor.fetchone() is not None
+
+    # =========================================================================
+    # Hidden Categories methods (Phase 2)
+    # =========================================================================
+
+    def get_hidden_categories(self, user_id: int) -> List[str]:
+        """Get list of hidden category IDs for a user."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT category_id FROM hidden_categories WHERE user_id = ?",
+                (str(user_id),),
+            )
+            results = cursor.fetchall()
+            category_ids = [row[0] for row in results]
+            logger.debug(f"User {user_id} has {len(category_ids)} hidden categories")
+            return category_ids
+
+    def hide_category(self, user_id: int, category_id: str) -> bool:
+        """Hide a category for a user.
+
+        Returns True if the category was hidden, False if already hidden.
+        """
+        logger.info(f"User {user_id} hiding category {category_id}")
+        with self.get_cursor() as cursor:
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO hidden_categories (user_id, category_id, hidden_at)
+                    VALUES (?, ?, ?)
+                """,
+                    (str(user_id), category_id, datetime.now(timezone.utc).isoformat()),
+                )
+                return True
+            except sqlite3.IntegrityError:
+                # Already hidden
+                logger.debug(
+                    f"Category {category_id} already hidden for user {user_id}"
+                )
+                return False
+
+    def unhide_category(self, user_id: int, category_id: str) -> bool:
+        """Unhide a category for a user.
+
+        Returns True if the category was unhidden, False if wasn't hidden.
+        """
+        logger.info(f"User {user_id} unhiding category {category_id}")
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM hidden_categories WHERE user_id = ? AND category_id = ?",
+                (str(user_id), category_id),
+            )
+            deleted = cursor.rowcount > 0
+            if not deleted:
+                logger.debug(
+                    f"Category {category_id} was not hidden for user {user_id}"
+                )
+            return deleted
+
+    def is_category_hidden(self, user_id: int, category_id: str) -> bool:
+        """Check if a category is hidden for a user."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                """
+                SELECT 1 FROM hidden_categories
+                WHERE user_id = ? AND category_id = ?
+            """,
+                (str(user_id), category_id),
+            )
+            return cursor.fetchone() is not None
+
+    # =========================================================================
     # Settings methods
+    # =========================================================================
+
     def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get a setting value from database."""
         with self.get_cursor(commit=False) as cursor:

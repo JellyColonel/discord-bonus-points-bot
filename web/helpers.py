@@ -5,11 +5,16 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
 
 from flask import jsonify, session
 
-from web.activities import ACTIVITIES, get_all_activities
+from web.activities import (
+    CATEGORIES,
+    get_activities_by_category,
+    get_activities_by_fraction,
+    get_all_activities,
+)
 from web.database import get_today_date
 
 if TYPE_CHECKING:
@@ -93,7 +98,7 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
                 return jsonify(
                     {
                         "success": False,
-                        "error": "Ð¡Ð»Ð¸ÑˆÐºÐ¾Ð¼ Ð¼Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð². ÐŸÐ¾Ð¶Ð°Ð»ÑƒÐ¹ÑÑ‚Ð°, Ð¿Ð¾Ð´Ð¾Ð¶Ð´Ð¸Ñ‚Ðµ Ð½ÐµÐ¼Ð½Ð¾Ð³Ð¾.",
+                        "error": "Слишком много запросов. Пожалуйста, подождите немного.",
                     }
                 ), 429
 
@@ -114,6 +119,11 @@ def get_rate_limit_stats() -> Dict[str, int]:
     return {
         user_id: len(timestamps) for user_id, timestamps in _rate_limit_store.items()
     }
+
+
+# ============================================================================
+# BP Calculation
+# ============================================================================
 
 
 def is_event_active(db: Database, user_id: int) -> bool:
@@ -145,6 +155,97 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
     return base_bp * multiplier
 
 
+# ============================================================================
+# Hidden Activities/Categories Logic
+# ============================================================================
+
+
+def get_hidden_activity_ids(
+    db: Database,
+    user_id: int,
+    hidden_activities: Optional[List[str]] = None,
+    hidden_categories: Optional[List[str]] = None,
+) -> Set[str]:
+    """Get the full set of activity IDs that should be hidden for a user.
+
+    This combines:
+    1. Directly hidden activities
+    2. Activities hidden via category (specific categories like 'smartphone', 'casino')
+    3. Activities hidden via fraction categories ('all_crime', 'all_gov')
+
+    Args:
+        db: Database instance
+        user_id: User's Discord ID
+        hidden_activities: Pre-fetched hidden activities (optional, will fetch if None)
+        hidden_categories: Pre-fetched hidden categories (optional, will fetch if None)
+
+    Returns:
+        Set of activity IDs that should be hidden
+    """
+    # Fetch if not provided
+    if hidden_activities is None:
+        hidden_activities = db.get_hidden_activities(user_id)
+    if hidden_categories is None:
+        hidden_categories = db.get_hidden_categories(user_id)
+
+    hidden_set = set(hidden_activities)
+    hidden_categories_set = set(hidden_categories)
+
+    # Check fraction-based hiding (all_crime, all_gov)
+    hide_crime = "all_crime" in hidden_categories_set
+    hide_gov = "all_gov" in hidden_categories_set
+
+    # Check specific category hiding
+    specific_hidden_categories = hidden_categories_set - {"all_crime", "all_gov"}
+
+    for activity in get_all_activities():
+        activity_id = activity["id"]
+
+        # Skip if already hidden
+        if activity_id in hidden_set:
+            continue
+
+        # Check fraction-based hiding
+        fractions = activity.get("fraction", ["neutral"])
+        if hide_crime and "crime" in fractions:
+            # Only hide if ONLY crime (not mixed like airdrops which are crime+gov)
+            if fractions == ["crime"]:
+                hidden_set.add(activity_id)
+                continue
+        if hide_gov and "gov" in fractions:
+            if fractions == ["gov"]:
+                hidden_set.add(activity_id)
+                continue
+
+        # Check specific category hiding
+        activity_categories = set(activity.get("categories", []))
+        if activity_categories & specific_hidden_categories:
+            hidden_set.add(activity_id)
+
+    return hidden_set
+
+
+def is_activity_visible(
+    activity: dict,
+    hidden_activity_ids: Set[str],
+) -> bool:
+    """Check if an activity should be visible (not hidden).
+
+    Args:
+        activity: Activity dictionary
+        hidden_activity_ids: Set of hidden activity IDs
+
+    Returns:
+        True if activity should be visible, False if hidden
+    """
+    return activity["id"] not in hidden_activity_ids
+
+
+# ============================================================================
+# Dashboard Data Preparation
+# ============================================================================
+
+
 def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     """Prepare all data needed for dashboard rendering.
 
@@ -160,110 +261,203 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     # Get user data from database
     vip_status = db.get_user_vip_status(user_id)
     balance = db.get_user_bp_balance(user_id)
-    completed_activities_list = db.get_user_completed_activities(user_id, today)
-    completed_activities_set = set(completed_activities_list)
     event_active = is_event_active(db, user_id)
 
-    # Prepare activities by category
-    activities_by_category = _build_activities_by_category(
+    # Get completed activities with stored BP values
+    completed_with_bp = db.get_user_completed_activities_with_bp(user_id, today)
+    completed_activities_list = [item[0] for item in completed_with_bp]
+    completed_bp_map = {
+        item[0]: item[1] for item in completed_with_bp
+    }  # activity_id -> bp_earned
+    completed_activities_set = set(completed_activities_list)
+
+    # Get hidden activities and categories
+    hidden_activities = db.get_hidden_activities(user_id)
+    hidden_categories = db.get_hidden_categories(user_id)
+    hidden_activity_ids = get_hidden_activity_ids(
+        db, user_id, hidden_activities, hidden_categories
+    )
+
+    # Build activities list with status
+    activities_with_status = _build_activities_list(
         completed_activities_list,
         completed_activities_set,
+        completed_bp_map,
+        hidden_activity_ids,
         vip_status,
         event_active,
     )
 
-    # Calculate totals
-    total_earned, total_remaining = _calculate_totals(activities_by_category)
+    # Calculate totals (only for visible activities)
+    total_earned, total_remaining, visible_total, visible_completed = _calculate_totals(
+        activities_with_status,
+        completed_bp_map,
+    )
 
-    # Calculate progress
-    total_activities = len(get_all_activities())
-    completed_count = len(completed_activities_list)
+    # Calculate progress (only visible activities)
     progress_percentage = (
-        int((completed_count / total_activities) * 100) if total_activities > 0 else 0
+        int((visible_completed / visible_total) * 100) if visible_total > 0 else 0
     )
 
     return {
-        "activities_by_category": activities_by_category,
+        "activities": activities_with_status,
         "vip_status": vip_status,
         "balance": balance,
         "total_earned": total_earned,
         "total_remaining": total_remaining,
-        "completed_count": completed_count,
-        "total_activities": total_activities,
+        "completed_count": visible_completed,
+        "total_activities": visible_total,
         "progress_percentage": progress_percentage,
         "event_active": event_active,
+        "hidden_activities": hidden_activities,
+        "hidden_categories": hidden_categories,
     }
 
 
-def _build_activities_by_category(
+def _build_activities_list(
     completed_activities_list: List[str],
     completed_activities_set: Set[str],
+    completed_bp_map: Dict[str, Optional[int]],
+    hidden_activity_ids: Set[str],
     vip_status: bool,
     event_active: bool,
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Build activities organized by category with completion status.
+) -> List[Dict[str, Any]]:
+    """Build flat list of activities with completion status.
+
+    Activities are returned in definition order with hidden activities excluded.
 
     Args:
         completed_activities_list: List of completed activity IDs (ordered by completion time)
         completed_activities_set: Set of completed activity IDs (for fast lookup)
+        completed_bp_map: Map of activity_id -> stored bp_earned
+        hidden_activity_ids: Set of hidden activity IDs
         vip_status: Whether user has VIP status
         event_active: Whether x2 BP event is active
 
     Returns:
-        Dictionary mapping category names to lists of activities with status
+        List of activities with status, excluding hidden ones
     """
-    # Create lookup dict for all activities by ID
-    all_activities_dict = {}
-    for category, activities in ACTIVITIES.items():
-        for activity in activities:
-            all_activities_dict[activity["id"]] = {**activity, "category": category}
+    activities_with_status = []
 
-    activities_by_category = {}
+    for activity in get_all_activities():
+        activity_id = activity["id"]
 
-    for category, activities in ACTIVITIES.items():
-        activities_with_status = []
+        # Skip hidden activities
+        if activity_id in hidden_activity_ids:
+            continue
 
-        # First, add completed activities in database order (most recent first)
-        for activity_id in completed_activities_list:
-            activity = all_activities_dict.get(activity_id)
-            if activity and activity["category"] == category:
+        is_completed = activity_id in completed_activities_set
+
+        # For completed activities, use stored BP if available
+        # For uncompleted, calculate current BP value
+        if is_completed:
+            stored_bp = completed_bp_map.get(activity_id)
+            if stored_bp is not None:
+                bp_value = stored_bp
+            else:
+                # Fallback for old data without bp_earned
                 bp_value = calculate_bp(activity, vip_status, event_active)
-                activities_with_status.append(
-                    {**activity, "completed": True, "bp_value": bp_value}
-                )
+        else:
+            bp_value = calculate_bp(activity, vip_status, event_active)
 
-        # Then, add uncompleted activities in config order
-        for activity in activities:
-            if activity["id"] not in completed_activities_set:
-                bp_value = calculate_bp(activity, vip_status, event_active)
-                activities_with_status.append(
-                    {**activity, "completed": False, "bp_value": bp_value}
-                )
+        activities_with_status.append(
+            {
+                **activity,
+                "completed": is_completed,
+                "bp_value": bp_value,
+            }
+        )
 
-        activities_by_category[category] = activities_with_status
-
-    return activities_by_category
+    return activities_with_status
 
 
 def _calculate_totals(
-    activities_by_category: Dict[str, List[Dict[str, Any]]],
-) -> tuple[int, int]:
-    """Calculate total earned and remaining BP from activities.
+    activities_with_status: List[Dict[str, Any]],
+    completed_bp_map: Dict[str, Optional[int]],
+) -> Tuple[int, int, int, int]:
+    """Calculate total earned and remaining BP from visible activities.
+
+    For earned BP, uses stored bp_earned values (not recalculated).
 
     Args:
-        activities_by_category: Activities organized by category with completion status
+        activities_with_status: List of activities with completion status
+        completed_bp_map: Map of activity_id -> stored bp_earned
 
     Returns:
-        Tuple of (total_earned, total_remaining)
+        Tuple of (total_earned, total_remaining, visible_total, visible_completed)
     """
     total_earned = 0
     total_remaining = 0
+    visible_total = 0
+    visible_completed = 0
 
-    for activities in activities_by_category.values():
-        for activity in activities:
-            if activity["completed"]:
-                total_earned += activity["bp_value"]
+    for activity in activities_with_status:
+        visible_total += 1
+
+        if activity["completed"]:
+            visible_completed += 1
+            # Use the bp_value which is already set correctly in _build_activities_list
+            total_earned += activity["bp_value"]
+        else:
+            total_remaining += activity["bp_value"]
+
+    return total_earned, total_remaining, visible_total, visible_completed
+
+
+# ============================================================================
+# Settings Page Data
+# ============================================================================
+
+
+def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
+    """Prepare data for the settings page.
+
+    Args:
+        db: Database instance
+        user_id: User's Discord ID
+
+    Returns:
+        Dictionary containing settings page data
+    """
+    hidden_activities = set(db.get_hidden_activities(user_id))
+    hidden_categories = set(db.get_hidden_categories(user_id))
+
+    # Build activities list with hidden status
+    all_activities = []
+    for activity in get_all_activities():
+        all_activities.append(
+            {
+                **activity,
+                "hidden": activity["id"] in hidden_activities,
+            }
+        )
+
+    # Build categories list with hidden status and activity counts
+    categories_list = []
+    for category_id, category_info in CATEGORIES.items():
+        if category_info["type"] == "fraction":
+            # For fraction categories, count activities by fraction
+            if category_id == "all_crime":
+                count = len(get_activities_by_fraction("crime"))
+            elif category_id == "all_gov":
+                count = len(get_activities_by_fraction("gov"))
             else:
-                total_remaining += activity["bp_value"]
+                count = 0
+        else:
+            # For specific categories, count by category membership
+            count = len(get_activities_by_category(category_id))
 
-    return total_earned, total_remaining
+        categories_list.append(
+            {
+                **category_info,
+                "hidden": category_id in hidden_categories,
+                "count": count,
+            }
+        )
+
+    return {
+        "activities": all_activities,
+        "categories": categories_list,
+        "hidden_activities": list(hidden_activities),
+        "hidden_categories": list(hidden_categories),
+    }
