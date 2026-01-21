@@ -2,6 +2,7 @@
 
 import logging
 import time
+from typing import Any, Optional
 
 from flask import (
     Flask,
@@ -46,7 +47,7 @@ logger.info(f"Web dashboard using database: {WebConfig.DB_PATH}")
 
 
 @app.teardown_appcontext
-def close_db_connection(exception=None):
+def close_db_connection(exception: Optional[BaseException] = None) -> None:
     """Close database connection at the end of each request."""
     db.close_connection()
 
@@ -57,13 +58,13 @@ def close_db_connection(exception=None):
 
 
 @app.before_request
-def before_request_logging():
+def before_request_logging() -> None:
     """Store request start time for timing calculation."""
     g.start_time = time.perf_counter()
 
 
 @app.after_request
-def after_request_logging(response):
+def after_request_logging(response: Response) -> Response:
     """Log API requests with timing information."""
     # Only log API routes
     if not request.path.startswith("/api/"):
@@ -101,7 +102,7 @@ def after_request_logging(response):
 # ============================================================================
 
 
-def api_success(**data) -> Response:
+def api_success(**data: Any) -> Response:
     """Return a standardized API success response.
 
     Example:
@@ -126,7 +127,7 @@ def api_error(message: str, status_code: int = 400) -> tuple[Response, int]:
 # ============================================================================
 
 
-def validate_activity_id(value) -> tuple[bool, str]:
+def validate_activity_id(value: Any) -> tuple[bool, str]:
     """Validate activity_id format.
 
     Returns:
@@ -144,7 +145,7 @@ def validate_activity_id(value) -> tuple[bool, str]:
     return True, ""
 
 
-def validate_boolean(value, field_name: str) -> tuple[bool, bool, str]:
+def validate_boolean(value: Any, field_name: str) -> tuple[bool, bool, str]:
     """Validate and convert a boolean field.
 
     Returns:
@@ -165,7 +166,10 @@ def validate_boolean(value, field_name: str) -> tuple[bool, bool, str]:
 
 
 def validate_integer(
-    value, field_name: str, min_val: int = None, max_val: int = None
+    value: Any,
+    field_name: str,
+    min_val: Optional[int] = None,
+    max_val: Optional[int] = None,
 ) -> tuple[bool, int, str]:
     """Validate and convert an integer field.
 

@@ -3,6 +3,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -15,36 +16,36 @@ class WebConfig:
     """Web dashboard configuration."""
 
     # Flask settings
-    SECRET_KEY = os.getenv("SECRET_KEY")
-    SESSION_TYPE = "filesystem"
-    SESSION_PERMANENT = True
-    PERMANENT_SESSION_LIFETIME = timedelta(
+    SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY")
+    SESSION_TYPE: str = "filesystem"
+    SESSION_PERMANENT: bool = True
+    PERMANENT_SESSION_LIFETIME: timedelta = timedelta(
         days=int(os.getenv("SESSION_LIFETIME_DAYS", "30"))
     )
-    SESSION_USE_SIGNER = True
+    SESSION_USE_SIGNER: bool = True
 
     # Discord OAuth2
-    DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
-    DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
-    DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
-    DISCORD_API_BASE = "https://discord.com/api/v10"
-    DISCORD_OAUTH_URL = f"{DISCORD_API_BASE}/oauth2/authorize"
-    DISCORD_TOKEN_URL = f"{DISCORD_API_BASE}/oauth2/token"
-    DISCORD_USER_URL = f"{DISCORD_API_BASE}/users/@me"
+    DISCORD_CLIENT_ID: Optional[str] = os.getenv("DISCORD_CLIENT_ID")
+    DISCORD_CLIENT_SECRET: Optional[str] = os.getenv("DISCORD_CLIENT_SECRET")
+    DISCORD_REDIRECT_URI: Optional[str] = os.getenv("DISCORD_REDIRECT_URI")
+    DISCORD_API_BASE: str = "https://discord.com/api/v10"
+    DISCORD_OAUTH_URL: str = f"{DISCORD_API_BASE}/oauth2/authorize"
+    DISCORD_TOKEN_URL: str = f"{DISCORD_API_BASE}/oauth2/token"
+    DISCORD_USER_URL: str = f"{DISCORD_API_BASE}/users/@me"
 
     # Web server settings
-    HOST = os.getenv("WEB_HOST", "0.0.0.0")
-    PORT = int(os.getenv("WEB_PORT", 5000))
-    DEBUG = os.getenv("WEB_DEBUG", "False") == "True"
+    HOST: str = os.getenv("WEB_HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("WEB_PORT", 5000))
+    DEBUG: bool = os.getenv("WEB_DEBUG", "False") == "True"
 
     # Database path
-    ROOT_DIR = Path(__file__).parent.parent
-    DB_PATH = ROOT_DIR / "data" / "bonus_points.db"
+    ROOT_DIR: Path = Path(__file__).parent.parent
+    DB_PATH: Path = ROOT_DIR / "data" / "bonus_points.db"
 
     @classmethod
-    def validate(cls):
+    def validate(cls) -> None:
         """Validate required configuration on startup."""
-        required = {
+        required: dict[str, Optional[str]] = {
             "SECRET_KEY": cls.SECRET_KEY,
             "DISCORD_CLIENT_ID": cls.DISCORD_CLIENT_ID,
             "DISCORD_CLIENT_SECRET": cls.DISCORD_CLIENT_SECRET,

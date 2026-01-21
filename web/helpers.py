@@ -1,14 +1,20 @@
 """Helper functions for the web dashboard."""
 
+from __future__ import annotations
+
 import time
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Callable, Dict, List, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Set
 
 from flask import jsonify, session
 
 from web.activities import ACTIVITIES, get_all_activities
 from web.database import get_today_date
+
+if TYPE_CHECKING:
+    from web.database import Database
+
 
 # ============================================================================
 # Rate Limiting
@@ -110,7 +116,7 @@ def get_rate_limit_stats() -> Dict[str, int]:
     }
 
 
-def is_event_active(db) -> bool:
+def is_event_active(db: Database) -> bool:
     """Check if double BP event is currently active.
 
     Note: This queries the database. If calling multiple times in same request,
@@ -142,7 +148,7 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
     return base_bp * multiplier
 
 
-def prepare_dashboard_data(db, user_id: int) -> Dict[str, Any]:
+def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     """Prepare all data needed for dashboard rendering.
 
     Args:
