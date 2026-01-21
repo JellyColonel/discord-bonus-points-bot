@@ -1,12 +1,15 @@
 """Discord OAuth2 authentication."""
 
+from functools import wraps
+from typing import Any, Callable, Dict
+
 import requests
 from flask import redirect, session, url_for
 
 from web.config import WebConfig
 
 
-def get_oauth_url():
+def get_oauth_url() -> str:
     """Generate Discord OAuth2 authorization URL."""
     params = {
         "client_id": WebConfig.DISCORD_CLIENT_ID,
@@ -20,7 +23,7 @@ def get_oauth_url():
     return f"{url}?{param_string}"
 
 
-def exchange_code(code):
+def exchange_code(code: str) -> Dict[str, Any]:
     """Exchange authorization code for access token."""
     data = {
         "client_id": WebConfig.DISCORD_CLIENT_ID,
@@ -37,7 +40,7 @@ def exchange_code(code):
     return response.json()
 
 
-def get_user_info(access_token):
+def get_user_info(access_token: str) -> Dict[str, Any]:
     """Get user information from Discord."""
     headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -46,9 +49,8 @@ def get_user_info(access_token):
     return response.json()
 
 
-def require_auth(f):
+def require_auth(f: Callable) -> Callable:
     """Decorator to require authentication for routes."""
-    from functools import wraps
 
     @wraps(f)
     def decorated_function(*args, **kwargs):

@@ -3,6 +3,11 @@ Activity definitions and lookup functions.
 OPTIMIZED: Caching and O(1) lookups for better performance.
 """
 
+from typing import Any, Dict, List, Optional
+
+# Type alias for activity dictionary
+Activity = Dict[str, Any]
+
 ACTIVITIES = {
     "📍 Одиночные": [
         {
@@ -273,7 +278,7 @@ _ALL_ACTIVITIES_CACHE = None
 _ACTIVITIES_BY_ID_CACHE = None
 
 
-def _initialize_caches():
+def _initialize_caches() -> None:
     """Initialize caches and pre-compute search fields."""
     global _ALL_ACTIVITIES_CACHE, _ACTIVITIES_BY_ID_CACHE
 
@@ -297,17 +302,17 @@ _initialize_caches()
 TOTAL_ACTIVITIES = len(_ALL_ACTIVITIES_CACHE)
 
 
-def get_all_activities():
+def get_all_activities() -> List[Activity]:
     """Get flat list of all activities (cached). O(1)"""
     return _ALL_ACTIVITIES_CACHE
 
 
-def get_activity_by_id(activity_id):
+def get_activity_by_id(activity_id: str) -> Optional[Activity]:
     """Find activity by ID. O(1) dictionary lookup."""
     return _ACTIVITIES_BY_ID_CACHE.get(activity_id)
 
 
-def search_activities(query, max_results=25):
+def search_activities(query: str, max_results: int = 25) -> List[Activity]:
     """Search activities by name or ID (uses pre-lowercased fields)."""
     if not query:
         return _ALL_ACTIVITIES_CACHE[:max_results]

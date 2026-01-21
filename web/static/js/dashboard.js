@@ -6,6 +6,11 @@
 let isLoading = false;
 let originalActivityOrder = {}; // Store original order of activities
 
+// Get CSRF token from meta tag
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]').content;
+}
+
 // Show/hide loading overlay
 function showLoading() {
     document.getElementById('loading-overlay').style.display = 'flex';
@@ -40,6 +45,7 @@ async function toggleActivity(activityId, completed) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             },
             body: JSON.stringify({
                 activity_id: activityId,
@@ -112,6 +118,7 @@ async function setBalance() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             },
             body: JSON.stringify({ amount: amount })
         });
@@ -155,6 +162,7 @@ async function toggleVIP() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             },
             body: JSON.stringify({ vip_status: newVIP })
         });

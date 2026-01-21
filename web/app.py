@@ -3,6 +3,7 @@
 import logging
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask_wtf.csrf import CSRFProtect
 
 from flask_session import Session
 from web.activities import ACTIVITIES, get_activity_by_id, get_all_activities
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(WebConfig)
 Session(app)
+csrf = CSRFProtect(app)
 
 # Initialize database
 db = Database(str(WebConfig.DB_PATH))
@@ -386,7 +388,7 @@ def refresh_session():
 def run_web():
     """Run the Flask web server."""
     logger.info("=" * 80)
-    logger.info("ðŸš€ Starting Bonus Points Web Dashboard...")
+    logger.info("Ã°Å¸Å¡â‚¬ Starting Bonus Points Web Dashboard...")
     logger.info(f"   Host: {WebConfig.HOST}")
     logger.info(f"   Port: {WebConfig.PORT}")
     logger.info(f"   Database: {WebConfig.DB_PATH}")

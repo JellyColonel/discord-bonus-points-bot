@@ -3,7 +3,7 @@
 import logging
 import sqlite3
 from datetime import datetime, time, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class Database:
         self.init_db()
         logger.info("Database initialization complete")
 
-    def get_connection(self):
+    def get_connection(self) -> sqlite3.Connection:
         """Get a database connection with performance optimizations."""
         conn = sqlite3.connect(self.db_path)
 
@@ -35,7 +35,7 @@ class Database:
 
         return conn
 
-    def init_db(self):
+    def init_db(self) -> None:
         """Initialize database tables."""
         logger.info("Creating/verifying database tables...")
         with self.get_connection() as conn:
@@ -138,7 +138,7 @@ class Database:
             logger.debug(f"User {user_id} VIP status: {vip}")
             return vip
 
-    def set_user_vip_status(self, user_id: int, vip_status: bool):
+    def set_user_vip_status(self, user_id: int, vip_status: bool) -> None:
         """Set user's VIP status."""
         logger.info(f"Setting VIP status for user {user_id}: {vip_status}")
         with self.get_connection() as conn:
@@ -165,7 +165,7 @@ class Database:
             logger.debug(f"User {user_id} balance: {balance} BP")
             return balance
 
-    def set_user_bp_balance(self, user_id: int, balance: int):
+    def set_user_bp_balance(self, user_id: int, balance: int) -> None:
         """Set user's BP balance."""
         logger.info(f"Setting balance for user {user_id}: {balance} BP")
         with self.get_connection() as conn:
@@ -185,7 +185,7 @@ class Database:
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} → {new_balance})"
+            f"User {user_id} earned {amount} BP (Balance: {current_balance} â†’ {new_balance})"
         )
         return new_balance
 
@@ -195,7 +195,7 @@ class Database:
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} → {new_balance})"
+            f"User {user_id} lost {amount} BP (Balance: {current_balance} â†’ {new_balance})"
         )
         return new_balance
 
@@ -220,7 +220,7 @@ class Database:
 
     def set_activity_status(
         self, user_id: int, activity_id: str, date: str, completed: bool
-    ):
+    ) -> None:
         """Set activity completion status."""
         logger.info(
             f"User {user_id} {'completed' if completed else 'uncompleted'} activity {activity_id} on {date}"
@@ -278,7 +278,7 @@ class Database:
             logger.debug(f"Get setting {key}: {value}")
             return value
 
-    def set_setting(self, key: str, value: str):
+    def set_setting(self, key: str, value: str) -> None:
         """Set a setting value in database."""
         logger.info(f"Setting {key} = {value}")
         with self.get_connection() as conn:
@@ -292,7 +292,7 @@ class Database:
             )
             conn.commit()
 
-    def optimize_database(self):
+    def optimize_database(self) -> None:
         """Run VACUUM and ANALYZE to optimize database performance."""
         logger.info("Running database optimization...")
         with self.get_connection() as conn:
@@ -306,8 +306,8 @@ def get_today_date() -> str:
     Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
     Returns the "activity day" which continues until 04:00 UTC:
-    - From 00:00 to 03:59 UTC → Returns YESTERDAY's date (activities still valid)
-    - From 04:00 to 23:59 UTC → Returns TODAY's date (new activity day)
+    - From 00:00 to 03:59 UTC â†’ Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC â†’ Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
     between 00:00-04:00 UTC before the actual daily reset runs.
