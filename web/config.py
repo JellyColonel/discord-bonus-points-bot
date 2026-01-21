@@ -37,6 +37,6 @@ class WebConfig:
     PORT = int(os.getenv("WEB_PORT", 5000))
     DEBUG = os.getenv("WEB_DEBUG", "False") == "True"
 
-    # Database path (shared with bot)
+    # Database path
     ROOT_DIR = Path(__file__).parent.parent
     DB_PATH = ROOT_DIR / "data" / "bonus_points.db"

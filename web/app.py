@@ -1,15 +1,17 @@
-"""Flask web application for Discord Bonus Points Bot dashboard."""
+"""Flask web application for Bonus Points Dashboard."""
 
 import logging
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
-from bot.core.database import Database, get_today_date
-from bot.data import ACTIVITIES, get_activity_by_id, get_all_activities
-from bot.utils.helpers import calculate_bp, is_event_active
 from flask_session import Session
+from web.activities import ACTIVITIES, get_activity_by_id, get_all_activities
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth
 from web.config import WebConfig
+
+# Local imports (no bot dependency)
+from web.database import Database, get_today_date
+from web.helpers import calculate_bp, is_event_active
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -74,6 +76,7 @@ def callback():
             "avatar": user_info.get("avatar"),
             "access_token": access_token,
         }
+        session.permanent = True
 
         logger.info(f"User {user_info['username']} logged in (ID: {user_info['id']})")
         return redirect(url_for("dashboard"))
@@ -134,7 +137,7 @@ def dashboard():
         for activity_id in completed_activities_list:
             activity = all_activities_dict.get(activity_id)
             if activity and activity["category"] == category:
-                bp_value = calculate_bp(activity, vip_status, db)
+                bp_value = calculate_bp(activity, vip_status, event_active)
                 total_earned += bp_value
                 activities_with_status.append(
                     {**activity, "completed": True, "bp_value": bp_value}
@@ -143,7 +146,7 @@ def dashboard():
         # Then, add uncompleted activities in config order
         for activity in activities:
             if activity["id"] not in completed_activities_set:
-                bp_value = calculate_bp(activity, vip_status, db)
+                bp_value = calculate_bp(activity, vip_status, event_active)
                 total_remaining += bp_value
                 activities_with_status.append(
                     {**activity, "completed": False, "bp_value": bp_value}
@@ -202,7 +205,8 @@ def api_toggle_activity():
 
     # Update balance
     vip_status = db.get_user_vip_status(user_id)
-    bp = calculate_bp(activity, vip_status, db)
+    event_active = is_event_active(db)
+    bp = calculate_bp(activity, vip_status, event_active)
 
     if completed:
         new_balance = db.add_user_bp(user_id, bp)
@@ -210,9 +214,6 @@ def api_toggle_activity():
     else:
         new_balance = db.subtract_user_bp(user_id, bp)
         logger.info(f"User {user_id} uncompleted {activity_id}: -{bp} BP")
-
-    # TODO: Trigger Discord dashboard update via webhook
-    # notify_bot_update(user_id)
 
     return jsonify(
         {
@@ -249,9 +250,6 @@ def api_set_balance():
     db.set_user_bp_balance(user_id, amount)
     logger.info(f"User {user_id} set balance to {amount} BP")
 
-    # TODO: Trigger Discord dashboard update
-    # notify_bot_update(user_id)
-
     return jsonify({"success": True, "new_balance": amount})
 
 
@@ -267,10 +265,20 @@ def api_toggle_vip():
     db.set_user_vip_status(user_id, vip_status)
     logger.info(f"User {user_id} set VIP status to {vip_status}")
 
-    # TODO: Trigger Discord dashboard update
-    # notify_bot_update(user_id)
-
     return jsonify({"success": True, "vip_status": vip_status})
+
+
+@app.route("/api/toggle_event", methods=["POST"])
+@require_auth
+def api_toggle_event():
+    """Toggle x2 BP event status (admin function)."""
+    data = request.json
+    event_status = data.get("event_status", False)
+
+    db.set_setting("double_bp_event", str(event_status))
+    logger.info(f"Event status set to {event_status}")
+
+    return jsonify({"success": True, "event_status": event_status})
 
 
 @app.route("/api/user_data", methods=["GET"])
@@ -303,6 +311,7 @@ def api_activity_bp_values():
     today = get_today_date()
 
     vip_status = db.get_user_vip_status(user_id)
+    event_active = is_event_active(db)
     completed_activities = set(db.get_user_completed_activities(user_id, today))
 
     # Calculate BP values for all activities
@@ -311,7 +320,7 @@ def api_activity_bp_values():
     total_remaining = 0
 
     for activity in get_all_activities():
-        bp_value = calculate_bp(activity, vip_status, db)
+        bp_value = calculate_bp(activity, vip_status, event_active)
         activity_bp_values[activity["id"]] = bp_value
 
         if activity["id"] in completed_activities:
@@ -336,6 +345,7 @@ def api_user_stats():
     today = get_today_date()
 
     vip_status = db.get_user_vip_status(user_id)
+    event_active = is_event_active(db)
     balance = db.get_user_bp_balance(user_id)
     completed_activities = set(db.get_user_completed_activities(user_id, today))
 
@@ -343,7 +353,7 @@ def api_user_stats():
     total_remaining = 0
 
     for activity in get_all_activities():
-        bp_value = calculate_bp(activity, vip_status, db)
+        bp_value = calculate_bp(activity, vip_status, event_active)
         if activity["id"] in completed_activities:
             total_earned += bp_value
         else:
@@ -363,6 +373,11 @@ def api_user_stats():
     )
 
 
+@app.before_request
+def refresh_session():
+    session.modified = True
+
+
 # ============================================================================
 # Run Web Server
 # ============================================================================
@@ -371,7 +386,7 @@ def api_user_stats():
 def run_web():
     """Run the Flask web server."""
     logger.info("=" * 80)
-    logger.info("🚀 Starting Web Dashboard...")
+    logger.info("ðŸš€ Starting Bonus Points Web Dashboard...")
     logger.info(f"   Host: {WebConfig.HOST}")
     logger.info(f"   Port: {WebConfig.PORT}")
     logger.info(f"   Database: {WebConfig.DB_PATH}")
@@ -381,7 +396,7 @@ def run_web():
         host=WebConfig.HOST,
         port=WebConfig.PORT,
         debug=WebConfig.DEBUG,
-        use_reloader=False,  # Important when running with bot
+        use_reloader=False,
     )
 
 

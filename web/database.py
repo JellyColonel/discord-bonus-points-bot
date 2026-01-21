@@ -1,5 +1,4 @@
-# bonus_points_bot/bot/core/database.py
-"""Database operations module - FIXED with smart date handling."""
+"""Database operations module for Bonus Points Web Dashboard."""
 
 import logging
 import sqlite3
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    """Handles all database operations for the bot."""
+    """Handles all database operations for the web dashboard."""
 
     def __init__(self, db_path: str = "bonus_points.db"):
         self.db_path = db_path
@@ -28,7 +27,7 @@ class Database:
         # Increase cache size from 2MB to 10MB
         conn.execute("PRAGMA cache_size=-10000")
 
-        # Faster synchronization (safe for Discord bot use case)
+        # Faster synchronization
         conn.execute("PRAGMA synchronous=NORMAL")
 
         # Use memory for temporary tables
@@ -93,20 +92,8 @@ class Database:
             """)
             logger.debug("Settings table created/verified")
 
-            # Dashboard messages table for persistent dashboard tracking
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS dashboard_messages (
-                    user_id TEXT PRIMARY KEY,
-                    channel_id TEXT NOT NULL,
-                    message_id TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            logger.debug("Dashboard messages table created/verified")
-
             # ============================================================
-            # OPTIMIZED INDEXES - Much faster queries!
+            # OPTIMIZED INDEXES
             # ============================================================
 
             # Primary lookup index - covers most queries
@@ -115,20 +102,19 @@ class Database:
                 ON activities(user_id, date, activity_id)
             """)
 
-            # Specialized index for autocomplete (finding completed activities)
-            # Partial index only includes completed=1 rows (smaller, faster)
+            # Specialized index for finding completed activities
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_activities_completed 
                 ON activities(user_id, date) WHERE completed = 1
             """)
 
-            # Index for date-based queries (cleanup, daily reset)
+            # Index for date-based queries (cleanup)
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_activities_date 
                 ON activities(date)
             """)
 
-            # Covering index for status checks (includes completed in index)
+            # Covering index for status checks
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_activities_status
                 ON activities(user_id, activity_id, date, completed)
@@ -199,7 +185,7 @@ class Database:
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} earned {amount} BP (Balance: {current_balance} → {new_balance})"
         )
         return new_balance
 
@@ -209,7 +195,7 @@ class Database:
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} lost {amount} BP (Balance: {current_balance} → {new_balance})"
         )
         return new_balance
 
@@ -306,85 +292,6 @@ class Database:
             )
             conn.commit()
 
-    # Dashboard persistence methods
-    def save_dashboard_message(self, user_id: int, channel_id: int, message_id: int):
-        """Save dashboard message IDs to database for persistence."""
-        logger.info(
-            f"Saving dashboard for user {user_id}: channel={channel_id}, message={message_id}"
-        )
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO dashboard_messages (user_id, channel_id, message_id, last_updated)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET 
-                    channel_id = ?,
-                    message_id = ?,
-                    last_updated = ?
-            """,
-                (
-                    str(user_id),
-                    str(channel_id),
-                    str(message_id),
-                    datetime.utcnow().isoformat(),
-                    str(channel_id),
-                    str(message_id),
-                    datetime.utcnow().isoformat(),
-                ),
-            )
-            conn.commit()
-
-    def get_dashboard_message(self, user_id: int) -> Optional[Tuple[int, int]]:
-        """Get saved dashboard message IDs for a user.
-
-        Returns:
-            Tuple of (channel_id, message_id) or None if not found
-        """
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT channel_id, message_id 
-                FROM dashboard_messages 
-                WHERE user_id = ?
-            """,
-                (str(user_id),),
-            )
-            result = cursor.fetchone()
-            if result:
-                channel_id = int(result[0])
-                message_id = int(result[1])
-                logger.debug(
-                    f"Retrieved dashboard for user {user_id}: channel={channel_id}, message={message_id}"
-                )
-                return (channel_id, message_id)
-            return None
-
-    def delete_dashboard_message(self, user_id: int):
-        """Delete dashboard message record for a user."""
-        logger.info(f"Deleting dashboard record for user {user_id}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM dashboard_messages WHERE user_id = ?", (str(user_id),)
-            )
-            conn.commit()
-
-    def get_all_dashboard_messages(self) -> List[Tuple[int, int, int]]:
-        """Get all saved dashboard messages.
-
-        Returns:
-            List of tuples: (user_id, channel_id, message_id)
-        """
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT user_id, channel_id, message_id FROM dashboard_messages"
-            )
-            results = cursor.fetchall()
-            return [(int(row[0]), int(row[1]), int(row[2])) for row in results]
-
     def optimize_database(self):
         """Run VACUUM and ANALYZE to optimize database performance."""
         logger.info("Running database optimization...")
@@ -399,8 +306,8 @@ def get_today_date() -> str:
     Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
     Returns the "activity day" which continues until 04:00 UTC:
-    - From 00:00 to 03:59 UTC â†’ Returns YESTERDAY's date (activities still valid)
-    - From 04:00 to 23:59 UTC â†’ Returns TODAY's date (new activity day)
+    - From 00:00 to 03:59 UTC → Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC → Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
     between 00:00-04:00 UTC before the actual daily reset runs.

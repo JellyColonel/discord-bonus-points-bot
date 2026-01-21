@@ -680,8 +680,8 @@ function updateSearchEmptyStates(query) {
             searchEmptyState.className = 'search-empty-state';
             searchEmptyState.innerHTML = `
                 <div class="empty-icon">🔍</div>
-                <h3>No results found</h3>
-                <p>No activities match "<strong>${escapeHtml(query)}</strong>" in this tab</p>
+                <h3>Ничего не найдено</h3>
+                <p>Нет активностей, соответствующих "<strong>${escapeHtml(query)}</strong>" в этой вкладке</p>
             `;
             tab.appendChild(searchEmptyState);
         }
