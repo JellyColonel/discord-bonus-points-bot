@@ -119,20 +119,29 @@ async function toggleActivity(activityId, completed) {
                 'success'
             );
         } else {
-            throw new Error(data.error || 'Unknown error');
+            // Show error message from API (includes rate limit message)
+            showToast(data.error || 'Не удалось обновить активность', 'error');
+            revertCheckbox(activityId, completed);
         }
     } catch (error) {
         console.error('Error toggling activity:', error);
         showToast('Не удалось обновить активность', 'error');
-
-        // Revert checkbox
-        const checkbox = document.getElementById(`activity-${activityId}`) ||
-                        document.getElementById(`activity-completed-${activityId}`);
-        if (checkbox) {
-            checkbox.checked = !completed;
-        }
+        revertCheckbox(activityId, completed);
     } finally {
         hideLoading();
+    }
+}
+
+/**
+ * Revert checkbox state after an error.
+ * @param {string} activityId - The activity identifier
+ * @param {boolean} completed - The attempted state (will revert to opposite)
+ */
+function revertCheckbox(activityId, completed) {
+    const checkbox = document.getElementById(`activity-${activityId}`) ||
+                    document.getElementById(`activity-completed-${activityId}`);
+    if (checkbox) {
+        checkbox.checked = !completed;
     }
 }
 

@@ -1,9 +1,113 @@
 """Helper functions for the web dashboard."""
 
-from typing import Any, Dict, List, Set
+import time
+from collections import defaultdict
+from functools import wraps
+from typing import Any, Callable, Dict, List, Set
+
+from flask import jsonify, session
 
 from web.activities import ACTIVITIES, get_all_activities
 from web.database import get_today_date
+
+# ============================================================================
+# Rate Limiting
+# ============================================================================
+
+# In-memory storage for request timestamps: {user_id: [timestamp1, timestamp2, ...]}
+_rate_limit_store: Dict[str, List[float]] = defaultdict(list)
+
+
+def _cleanup_old_requests(user_id: str, window_seconds: int) -> None:
+    """Remove timestamps older than the rate limit window.
+
+    Args:
+        user_id: User identifier
+        window_seconds: Time window in seconds
+    """
+    now = time.time()
+    cutoff = now - window_seconds
+    _rate_limit_store[user_id] = [
+        ts for ts in _rate_limit_store[user_id] if ts > cutoff
+    ]
+
+
+def _is_rate_limited(user_id: str, max_requests: int, window_seconds: int) -> bool:
+    """Check if user has exceeded rate limit.
+
+    Args:
+        user_id: User identifier
+        max_requests: Maximum requests allowed in window
+        window_seconds: Time window in seconds
+
+    Returns:
+        True if rate limited, False otherwise
+    """
+    _cleanup_old_requests(user_id, window_seconds)
+    return len(_rate_limit_store[user_id]) >= max_requests
+
+
+def _record_request(user_id: str) -> None:
+    """Record a request timestamp for the user.
+
+    Args:
+        user_id: User identifier
+    """
+    _rate_limit_store[user_id].append(time.time())
+
+
+def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
+    """Decorator to rate limit API endpoints.
+
+    Uses in-memory storage with sliding window approach.
+    Identifies users by their session user ID.
+
+    Args:
+        max_requests: Maximum requests allowed in the time window (default: 30)
+        window_seconds: Time window in seconds (default: 60)
+
+    Returns:
+        Decorated function that enforces rate limiting
+
+    Example:
+        @app.route("/api/action", methods=["POST"])
+        @require_auth
+        @rate_limit(max_requests=10, window_seconds=60)
+        def api_action():
+            ...
+    """
+
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Get user ID from session (fallback to "anonymous" if not logged in)
+            user_id = str(session.get("user", {}).get("id", "anonymous"))
+
+            if _is_rate_limited(user_id, max_requests, window_seconds):
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Слишком много запросов. Пожалуйста, подождите немного.",
+                    }
+                ), 429
+
+            _record_request(user_id)
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
+def get_rate_limit_stats() -> Dict[str, int]:
+    """Get current rate limit statistics (for debugging).
+
+    Returns:
+        Dictionary mapping user IDs to their current request count
+    """
+    return {
+        user_id: len(timestamps) for user_id, timestamps in _rate_limit_store.items()
+    }
 
 
 def is_event_active(db) -> bool:

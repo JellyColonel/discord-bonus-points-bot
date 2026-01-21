@@ -23,7 +23,12 @@ from web.config import WebConfig
 
 # Local imports (no bot dependency)
 from web.database import Database, get_today_date
-from web.helpers import calculate_bp, is_event_active, prepare_dashboard_data
+from web.helpers import (
+    calculate_bp,
+    is_event_active,
+    prepare_dashboard_data,
+    rate_limit,
+)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -289,6 +294,9 @@ def dashboard() -> str:
 
 @app.route("/api/toggle_activity", methods=["POST"])
 @require_auth
+@rate_limit(
+    max_requests=60, window_seconds=60
+)  # 60 req/min - users may complete many activities
 def api_toggle_activity() -> Response | tuple[Response, int]:
     """Toggle activity completion status."""
     user_id = int(session["user"]["id"])
@@ -344,6 +352,7 @@ def api_toggle_activity() -> Response | tuple[Response, int]:
 
 @app.route("/api/set_balance", methods=["POST"])
 @require_auth
+@rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_set_balance() -> Response | tuple[Response, int]:
     """Set user balance."""
     user_id = int(session["user"]["id"])
@@ -370,6 +379,7 @@ def api_set_balance() -> Response | tuple[Response, int]:
 
 @app.route("/api/toggle_vip", methods=["POST"])
 @require_auth
+@rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_toggle_vip() -> Response | tuple[Response, int]:
     """Toggle VIP status."""
     user_id = int(session["user"]["id"])
@@ -396,6 +406,7 @@ def api_toggle_vip() -> Response | tuple[Response, int]:
 
 @app.route("/api/toggle_event", methods=["POST"])
 @require_auth
+@rate_limit(max_requests=10, window_seconds=60)  # 10 req/min
 def api_toggle_event() -> Response | tuple[Response, int]:
     """Toggle x2 BP event status (admin function)."""
     data = request.json
@@ -421,6 +432,7 @@ def api_toggle_event() -> Response | tuple[Response, int]:
 
 @app.route("/api/user_data", methods=["GET"])
 @require_auth
+@rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
 def api_user_data() -> Response | tuple[Response, int]:
     """Get current user data (for refreshing dashboard)."""
     user_id = int(session["user"]["id"])
@@ -445,6 +457,7 @@ def api_user_data() -> Response | tuple[Response, int]:
 
 @app.route("/api/activity_bp_values", methods=["GET"])
 @require_auth
+@rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
 def api_activity_bp_values() -> Response | tuple[Response, int]:
     """Get all activity BP values with current VIP/event status."""
     user_id = int(session["user"]["id"])
@@ -481,6 +494,7 @@ def api_activity_bp_values() -> Response | tuple[Response, int]:
 
 @app.route("/api/user_stats", methods=["GET"])
 @require_auth
+@rate_limit(max_requests=30, window_seconds=60)  # 30 req/min - read-only
 def api_user_stats() -> Response | tuple[Response, int]:
     """Get user statistics (balance, earned, remaining, progress)."""
     user_id = int(session["user"]["id"])
