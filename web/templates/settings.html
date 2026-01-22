@@ -30,7 +30,7 @@
                  data-name="{{ activity.name | lower }}">
                 <div class="activity-item-info">
                     <span class="activity-item-name">{{ activity.name }}</span>
-                    <span class="activity-item-bp">{{ activity.bp }}/{{ activity.bp_vip }} BP</span>
+                    <span class="activity-item-bp">{{ activity.bp_value }} BP</span>
                 </div>
                 <button class="btn btn-sm {% if activity.hidden %}btn-show{% else %}btn-hide{% endif %}"
                         onclick="toggleActivityVisibility('{{ activity.id }}', {{ 'true' if activity.hidden else 'false' }})">

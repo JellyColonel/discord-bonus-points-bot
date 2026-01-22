@@ -145,9 +145,10 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
     Returns:
         Calculated BP amount
     """
-    base_bp = activity["bp_vip"] if vip_status else activity["bp"]
-    multiplier = 2 if event_active else 1
-    return base_bp * multiplier
+    base_bp = activity["bp"]
+    vip_multiplier = 2 if vip_status else 1
+    event_multiplier = 2 if event_active else 1
+    return base_bp * vip_multiplier * event_multiplier
 
 
 # ============================================================================
@@ -369,14 +370,18 @@ def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
         Dictionary containing settings page data
     """
     hidden_activities = set(db.get_hidden_activities(user_id))
+    vip_status = db.get_user_vip_status(user_id)
+    event_active = is_event_active(db, user_id)
 
-    # Build activities list with hidden status
+    # Build activities list with hidden status and calculated BP
     all_activities = []
     for activity in get_all_activities():
+        bp_value = calculate_bp(activity, vip_status, event_active)
         all_activities.append(
             {
                 **activity,
                 "hidden": activity["id"] in hidden_activities,
+                "bp_value": bp_value,
             }
         )
 
