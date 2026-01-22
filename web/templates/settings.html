@@ -5,14 +5,66 @@
 {% block content %}
 <div class="settings-page">
     <div class="settings-header">
-        <h2>⚙️ Настройки активностей</h2>
-        <p>Скрытые активности не отображаются на панели и не учитываются в прогрессе</p>
+        <h2>⚙️ Настройки</h2>
+        <p>Управление аккаунтом и настройка отображения активностей</p>
+    </div>
+
+    <!-- Account Settings Section -->
+    <div class="settings-section">
+        <h3>👤 Аккаунт</h3>
+        <p class="section-description">Управление VIP статусом, событиями и балансом</p>
+
+        <div class="account-settings-grid">
+            <!-- VIP Toggle -->
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">VIP Статус</span>
+                    <span class="setting-description">Удваивает получаемые BP</span>
+                </div>
+                <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}"
+                     id="vip-badge"
+                     onclick="toggleVIP()"
+                     title="Нажмите для переключения">
+                    {% if vip_status %}⭐ Активен{% else %}Неактивен{% endif %}
+                </div>
+            </div>
+
+            <!-- Event Toggle -->
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">x2 Событие</span>
+                    <span class="setting-description">Удваивает получаемые BP</span>
+                </div>
+                <div class="badge {% if event_active %}badge-event{% else %}badge-inactive{% endif %}"
+                     id="event-badge"
+                     onclick="toggleEvent()"
+                     title="Нажмите для переключения">
+                    {% if event_active %}🎉 Активно{% else %}Неактивно{% endif %}
+                </div>
+            </div>
+
+            <!-- Balance Control -->
+            <div class="setting-item setting-item-balance">
+                <div class="setting-info">
+                    <span class="setting-label">Баланс BP</span>
+                    <span class="setting-description">Текущий: <strong id="current-balance">{{ balance }}</strong> BP</span>
+                </div>
+                <div class="balance-control">
+                    <input type="number"
+                           id="balance-input"
+                           placeholder="Новый баланс"
+                           min="0"
+                           max="1000000">
+                    <button onclick="setBalance()" class="btn btn-primary btn-sm">Обновить</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Individual Activities Section -->
     <div class="settings-section">
-        <h3>📋 Активности</h3>
-        <p class="section-description">Скройте конкретные активности, которые вам не нужны</p>
+        <h3>📋 Скрытые активности</h3>
+        <p class="section-description">Скрытые активности не отображаются на панели и не учитываются в прогрессе</p>
 
         <!-- Search for activities -->
         <div class="settings-search">
@@ -108,6 +160,166 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// =================================================================
+// VIP & Event Functions
+// =================================================================
+
+/**
+ * Toggle the user's VIP status via API.
+ */
+async function toggleVIP() {
+    if (isLoading) return;
+
+    showLoading();
+
+    const vipBadge = document.getElementById('vip-badge');
+    vipBadge.style.pointerEvents = 'none';
+
+    try {
+        const currentVIP = vipBadge.classList.contains('badge-vip');
+        const newVIP = !currentVIP;
+
+        const response = await fetch('/api/toggle_vip', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ vip_status: newVIP })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.vip_status) {
+                vipBadge.classList.remove('badge-inactive');
+                vipBadge.classList.add('badge-vip');
+                vipBadge.textContent = '⭐ Активен';
+            } else {
+                vipBadge.classList.remove('badge-vip');
+                vipBadge.classList.add('badge-inactive');
+                vipBadge.textContent = 'Неактивен';
+            }
+
+            showToast(`VIP статус ${data.vip_status ? 'активирован' : 'деактивирован'}`, 'success');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error toggling VIP:', error);
+        showToast('Не удалось изменить VIP статус', 'error');
+    } finally {
+        hideLoading();
+        vipBadge.style.pointerEvents = 'auto';
+    }
+}
+
+/**
+ * Toggle the user's x2 event status via API.
+ */
+async function toggleEvent() {
+    if (isLoading) return;
+
+    showLoading();
+
+    const eventBadge = document.getElementById('event-badge');
+    eventBadge.style.pointerEvents = 'none';
+
+    try {
+        const currentEvent = eventBadge.classList.contains('badge-event');
+        const newEvent = !currentEvent;
+
+        const response = await fetch('/api/toggle_event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ event_status: newEvent })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.event_status) {
+                eventBadge.classList.remove('badge-inactive');
+                eventBadge.classList.add('badge-event');
+                eventBadge.textContent = '🎉 Активно';
+            } else {
+                eventBadge.classList.remove('badge-event');
+                eventBadge.classList.add('badge-inactive');
+                eventBadge.textContent = 'Неактивно';
+            }
+
+            showToast(`x2 событие ${data.event_status ? 'активировано' : 'деактивировано'}`, 'success');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error toggling event:', error);
+        showToast('Не удалось изменить статус события', 'error');
+    } finally {
+        hideLoading();
+        eventBadge.style.pointerEvents = 'auto';
+    }
+}
+
+// =================================================================
+// Balance Functions
+// =================================================================
+
+/**
+ * Set the user's BP balance via API.
+ */
+async function setBalance() {
+    if (isLoading) return;
+
+    const input = document.getElementById('balance-input');
+    const amount = parseInt(input.value);
+
+    if (isNaN(amount) || amount < 0) {
+        showToast('Пожалуйста, введите корректную сумму', 'error');
+        return;
+    }
+
+    if (amount > 1000000) {
+        showToast('Сумма не может превышать 1,000,000 BP', 'error');
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const response = await fetch('/api/set_balance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ amount: amount })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('current-balance').textContent = data.new_balance;
+            input.value = '';
+            showToast(`Баланс обновлён до ${data.new_balance} BP`, 'success');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error setting balance:', error);
+        showToast('Не удалось обновить баланс', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// =================================================================
+// Activity Visibility Functions
+// =================================================================
+
 /**
  * Toggle individual activity visibility.
  * @param {string} activityId - The activity identifier
@@ -202,6 +414,16 @@ function initializeSearch() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeSearch();
+
+    // Allow Enter key to submit balance
+    const balanceInput = document.getElementById('balance-input');
+    if (balanceInput) {
+        balanceInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                setBalance();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

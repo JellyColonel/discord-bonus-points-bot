@@ -34,24 +34,6 @@
         </div>
     </div>
 
-    <!-- Status Badges & Controls -->
-    <div class="status-and-controls">
-        <div class="status-badges-inline">
-            <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge" onclick="toggleVIP()" title="Нажмите для переключения VIP статуса">
-                {% if vip_status %}⭐ VIP Активен{% else %}VIP Неактивен{% endif %}
-            </div>
-            <div class="badge {% if event_active %}badge-event{% else %}badge-inactive{% endif %}" id="event-badge" onclick="toggleEvent()" title="Нажмите для переключения x2 события">
-                {% if event_active %}🎉 x2 BP Активно{% else %}x2 BP Неактивно{% endif %}
-            </div>
-        </div>
-
-        <div class="balance-control-inline">
-            <label for="balance-input">Установить Баланс:</label>
-            <input type="number" id="balance-input" placeholder="Введите сумму" min="0" max="1000000">
-            <button onclick="setBalance()" class="btn btn-primary">Обновить</button>
-        </div>
-    </div>
-
     <!-- Search & Filters -->
     <div class="search-filter-container">
         <!-- Search Box -->

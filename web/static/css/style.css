@@ -315,65 +315,7 @@ body {
     transition: width 0.3s ease;
 }
 
-/* Status Badges & Controls Combined */
-.status-and-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 30px;
-    flex-wrap: wrap;
-}
-
-.status-badges-inline {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.balance-control-inline {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-}
-
-.balance-control-inline label {
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.balance-control-inline input {
-    width: 150px;
-    padding: 10px 16px;
-    background: var(--surface-light);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-primary);
-    font-size: 14px;
-}
-
-.balance-control-inline input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-/* Remove number input spinners */
-.balance-control-inline input::-webkit-outer-spin-button,
-.balance-control-inline input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.balance-control-inline input[type=number] {
-    -moz-appearance: textfield;
-    appearance: textfield;
-}
-
-.balance-control-inline .btn {
-    padding: 10px 20px;
-}
-
+/* Status Badges (used in settings) */
 .badge {
     padding: 10px 20px;
     border-radius: 8px;
@@ -727,6 +669,98 @@ body {
     margin-bottom: 20px;
 }
 
+/* Account Settings Grid */
+.account-settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.setting-item {
+    background: var(--surface-light);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+    border-color: var(--border);
+}
+
+.setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.setting-label {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.setting-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.setting-description strong {
+    color: var(--primary-color);
+}
+
+.setting-item .badge {
+    min-width: 120px;
+    text-align: center;
+}
+
+.setting-item-balance {
+    flex-wrap: wrap;
+}
+
+.balance-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.balance-control input {
+    width: 140px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.balance-control input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.balance-control input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+/* Remove number input spinners */
+.balance-control input::-webkit-outer-spin-button,
+.balance-control input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.balance-control input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 /* Categories Grid */
 .categories-grid {
     display: grid;
@@ -960,32 +994,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .status-and-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 16px;
-    }
-
-    .status-badges-inline {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .balance-control-inline {
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-
-    .balance-control-inline input {
-        width: 100%;
-    }
-
-    .balance-control-inline .btn {
-        width: 100%;
-    }
-
     .search-filter-container {
         padding: 16px;
     }
@@ -1031,6 +1039,31 @@ body {
     }
 
     .category-card .btn {
+        width: 100%;
+    }
+
+    /* Settings page responsive */
+    .setting-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .setting-item .badge {
+        width: 100%;
+        text-align: center;
+    }
+
+    .balance-control {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .balance-control input {
+        width: 100%;
+    }
+
+    .balance-control .btn {
         width: 100%;
     }
 }

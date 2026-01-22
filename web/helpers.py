@@ -93,7 +93,7 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
                 return jsonify(
                     {
                         "success": False,
-                        "error": "Слишком много запросов. Пожалуйста, подождите немного.",
+                        "error": "Ð¡Ð»Ð¸ÑˆÐºÐ¾Ð¼ Ð¼Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð². ÐŸÐ¾Ð¶Ð°Ð»ÑƒÐ¹ÑÑ‚Ð°, Ð¿Ð¾Ð´Ð¾Ð¶Ð´Ð¸Ñ‚Ðµ Ð½ÐµÐ¼Ð½Ð¾Ð³Ð¾.",
                     }
                 ), 429
 
@@ -372,6 +372,7 @@ def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
     hidden_activities = set(db.get_hidden_activities(user_id))
     vip_status = db.get_user_vip_status(user_id)
     event_active = is_event_active(db, user_id)
+    balance = db.get_user_bp_balance(user_id)
 
     # Build activities list with hidden status and calculated BP
     all_activities = []
@@ -388,4 +389,7 @@ def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
     return {
         "activities": all_activities,
         "hidden_activities": list(hidden_activities),
+        "vip_status": vip_status,
+        "event_active": event_active,
+        "balance": balance,
     }

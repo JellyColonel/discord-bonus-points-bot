@@ -308,6 +308,9 @@ def settings() -> str:
         user=user,
         activities=data["activities"],
         hidden_activities=data["hidden_activities"],
+        vip_status=data["vip_status"],
+        event_active=data["event_active"],
+        balance=data["balance"],
     )
 
 
