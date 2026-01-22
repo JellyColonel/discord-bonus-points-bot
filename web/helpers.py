@@ -9,12 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tupl
 
 from flask import jsonify, session
 
-from web.activities import (
-    CATEGORIES,
-    get_activities_by_category,
-    get_activities_by_fraction,
-    get_all_activities,
-)
+from web.activities import get_all_activities
 from web.database import get_today_date
 
 if TYPE_CHECKING:
@@ -156,7 +151,7 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
 
 
 # ============================================================================
-# Hidden Activities/Categories Logic
+# Hidden Activities Logic
 # ============================================================================
 
 
@@ -164,20 +159,13 @@ def get_hidden_activity_ids(
     db: Database,
     user_id: int,
     hidden_activities: Optional[List[str]] = None,
-    hidden_categories: Optional[List[str]] = None,
 ) -> Set[str]:
-    """Get the full set of activity IDs that should be hidden for a user.
-
-    This combines:
-    1. Directly hidden activities
-    2. Activities hidden via category (specific categories like 'smartphone', 'casino')
-    3. Activities hidden via fraction categories ('all_crime', 'all_gov')
+    """Get the set of activity IDs that should be hidden for a user.
 
     Args:
         db: Database instance
         user_id: User's Discord ID
         hidden_activities: Pre-fetched hidden activities (optional, will fetch if None)
-        hidden_categories: Pre-fetched hidden categories (optional, will fetch if None)
 
     Returns:
         Set of activity IDs that should be hidden
@@ -185,44 +173,8 @@ def get_hidden_activity_ids(
     # Fetch if not provided
     if hidden_activities is None:
         hidden_activities = db.get_hidden_activities(user_id)
-    if hidden_categories is None:
-        hidden_categories = db.get_hidden_categories(user_id)
 
-    hidden_set = set(hidden_activities)
-    hidden_categories_set = set(hidden_categories)
-
-    # Check fraction-based hiding (all_crime, all_gov)
-    hide_crime = "all_crime" in hidden_categories_set
-    hide_gov = "all_gov" in hidden_categories_set
-
-    # Check specific category hiding
-    specific_hidden_categories = hidden_categories_set - {"all_crime", "all_gov"}
-
-    for activity in get_all_activities():
-        activity_id = activity["id"]
-
-        # Skip if already hidden
-        if activity_id in hidden_set:
-            continue
-
-        # Check fraction-based hiding
-        fractions = activity.get("fraction", ["neutral"])
-        if hide_crime and "crime" in fractions:
-            # Only hide if ONLY crime (not mixed like airdrops which are crime+gov)
-            if fractions == ["crime"]:
-                hidden_set.add(activity_id)
-                continue
-        if hide_gov and "gov" in fractions:
-            if fractions == ["gov"]:
-                hidden_set.add(activity_id)
-                continue
-
-        # Check specific category hiding
-        activity_categories = set(activity.get("categories", []))
-        if activity_categories & specific_hidden_categories:
-            hidden_set.add(activity_id)
-
-    return hidden_set
+    return set(hidden_activities)
 
 
 def is_activity_visible(
@@ -266,17 +218,15 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     # Get completed activities with stored BP values
     completed_with_bp = db.get_user_completed_activities_with_bp(user_id, today)
     completed_activities_list = [item[0] for item in completed_with_bp]
+
     completed_bp_map = {
         item[0]: item[1] for item in completed_with_bp
     }  # activity_id -> bp_earned
     completed_activities_set = set(completed_activities_list)
 
-    # Get hidden activities and categories
+    # Get hidden activities
     hidden_activities = db.get_hidden_activities(user_id)
-    hidden_categories = db.get_hidden_categories(user_id)
-    hidden_activity_ids = get_hidden_activity_ids(
-        db, user_id, hidden_activities, hidden_categories
-    )
+    hidden_activity_ids = get_hidden_activity_ids(db, user_id, hidden_activities)
 
     # Build activities list with status
     activities_with_status = _build_activities_list(
@@ -310,7 +260,6 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
         "progress_percentage": progress_percentage,
         "event_active": event_active,
         "hidden_activities": hidden_activities,
-        "hidden_categories": hidden_categories,
     }
 
 
@@ -420,7 +369,6 @@ def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
         Dictionary containing settings page data
     """
     hidden_activities = set(db.get_hidden_activities(user_id))
-    hidden_categories = set(db.get_hidden_categories(user_id))
 
     # Build activities list with hidden status
     all_activities = []
@@ -432,32 +380,7 @@ def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:
             }
         )
 
-    # Build categories list with hidden status and activity counts
-    categories_list = []
-    for category_id, category_info in CATEGORIES.items():
-        if category_info["type"] == "fraction":
-            # For fraction categories, count activities by fraction
-            if category_id == "all_crime":
-                count = len(get_activities_by_fraction("crime"))
-            elif category_id == "all_gov":
-                count = len(get_activities_by_fraction("gov"))
-            else:
-                count = 0
-        else:
-            # For specific categories, count by category membership
-            count = len(get_activities_by_category(category_id))
-
-        categories_list.append(
-            {
-                **category_info,
-                "hidden": category_id in hidden_categories,
-                "count": count,
-            }
-        )
-
     return {
         "activities": all_activities,
-        "categories": categories_list,
         "hidden_activities": list(hidden_activities),
-        "hidden_categories": list(hidden_categories),
     }

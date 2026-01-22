@@ -16,9 +16,9 @@
             <div class="stat-icon">📊</div>
             <h3>Прогресс</h3>
             <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
+                <div class="progress-fill" id="progress-fill" style="width: {{ progress_percentage }}%"></div>
             </div>
-            <p class="stat-value">{{ completed_count }} / {{ total_activities }}</p>
+            <p class="stat-value"><span id="completed-count">{{ completed_count }}</span> / <span id="total-count">{{ total_activities }}</span></p>
         </div>
 
         <div class="stat-card">
@@ -52,8 +52,9 @@
         </div>
     </div>
 
-    <!-- Search Box -->
-    <div class="search-container">
+    <!-- Search & Filters -->
+    <div class="search-filter-container">
+        <!-- Search Box -->
         <div class="search-box">
             <span class="search-icon">🔍</span>
             <input type="text"
@@ -62,100 +63,72 @@
                    autocomplete="off">
             <button class="search-clear" id="search-clear" style="display: none;">✕</button>
         </div>
-        <div class="search-results-count" id="search-results-count" style="display: none;">
-            <span id="search-count">0</span> результатов найдено
-        </div>
-    </div>
 
-    <!-- Activity Tabs -->
-    <div class="activity-tabs">
-        <button class="tab-btn active" onclick="switchTab('active')" data-tab="active">
-            ✨ Активные Задания
-            <span class="tab-count" id="active-count">{{ total_activities - completed_count }}</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('completed')" data-tab="completed">
-            ✅ Завершённые
-            <span class="tab-count" id="completed-count">{{ completed_count }}</span>
-        </button>
-    </div>
-
-    <!-- Активные Задания Tab -->
-    <div class="tab-content active" id="active-tab">
-        {% for category, category_activities in activities.items() %}
-        {% set active_activities = category_activities | selectattr('completed', 'equalto', False) | list %}
-        {% if active_activities %}
-        <div class="activity-category" data-category="{{ category }}">
-            <h2 class="category-title">{{ category }}</h2>
-            <div class="activity-grid">
-                {% for activity in active_activities %}
-                <div class="activity-card"
-                     data-activity-id="{{ activity.id }}"
-                     data-category="{{ category }}">
-                    <div class="activity-header">
-                        <input type="checkbox"
-                               id="activity-{{ activity.id }}"
-                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
-                        <label for="activity-{{ activity.id }}">
-                            {{ activity.name }}
-                        </label>
-                    </div>
-                    <div class="activity-bp">
-                        <span class="bp-value">{{ activity.bp_value }} BP</span>
-                    </div>
-                </div>
-                {% endfor %}
+        <!-- Filters -->
+        <div class="filters-row">
+            <div class="filter-group">
+                <label for="filter-type">Тип:</label>
+                <select id="filter-type" class="filter-select">
+                    <option value="all">Все</option>
+                    <option value="solo">Одиночные</option>
+                    <option value="pair">Парные</option>
+                </select>
             </div>
-        </div>
-        {% endif %}
-        {% endfor %}
 
-        {% if completed_count == total_activities %}
-        <div class="empty-state">
-            <div class="empty-icon">🎉</div>
-            <h3>All Activities Завершённые!</h3>
-            <p>Great job! Check the Завершённые tab to review or uncheck activities.</p>
+            <div class="filter-group">
+                <label for="filter-time">Время:</label>
+                <select id="filter-time" class="filter-select">
+                    <option value="all">Все</option>
+                    <option value="low">Быстро</option>
+                    <option value="medium">Средне</option>
+                    <option value="high">Долго</option>
+                </select>
+            </div>
+
+            <button class="btn btn-secondary btn-reset-filters" id="reset-filters" style="display: none;">
+                Сбросить
+            </button>
         </div>
-        {% endif %}
+
+        <div class="filter-results-count" id="filter-results-count">
+            Показано: <span id="visible-count">{{ activities|length }}</span> из <span id="filtered-total">{{ activities|length }}</span>
+        </div>
     </div>
 
-    <!-- Завершённые Activities Tab -->
-    <div class="tab-content" id="completed-tab">
-        {% for category, category_activities in activities.items() %}
-        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
-        {% if completed_activities %}
-        <div class="activity-category" data-category="{{ category }}">
-            <h2 class="category-title">{{ category }}</h2>
-            <div class="activity-grid">
-                {% for activity in completed_activities %}
-                <div class="activity-card completed"
-                     data-activity-id="{{ activity.id }}"
-                     data-category="{{ category }}">
-                    <div class="activity-header">
-                        <input type="checkbox"
-                               id="activity-completed-{{ activity.id }}"
-                               checked
-                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
-                        <label for="activity-completed-{{ activity.id }}">
-                            {{ activity.name }}
-                        </label>
-                    </div>
-                    <div class="activity-bp">
-                        <span class="bp-value">{{ activity.bp_value }} BP</span>
-                    </div>
+    <!-- Activities Grid (Flat, no categories) -->
+    <div class="activities-container">
+        <div class="activity-grid" id="activity-grid">
+            {% for activity in activities %}
+            <div class="activity-card {% if activity.completed %}completed{% endif %}"
+                 data-activity-id="{{ activity.id }}"
+                 data-name="{{ activity.name | lower }}"
+                 data-type="{{ activity.type }}"
+                 data-time="{{ activity.time }}"
+                 data-bp="{{ activity.bp_value }}"
+                 data-completed="{{ 'true' if activity.completed else 'false' }}">
+                <div class="activity-header">
+                    <input type="checkbox"
+                           id="activity-{{ activity.id }}"
+                           {% if activity.completed %}checked{% endif %}
+                           onchange="toggleActivity('{{ activity.id }}', this.checked)">
+                    <label for="activity-{{ activity.id }}">
+                        {{ activity.name }}
+                    </label>
                 </div>
-                {% endfor %}
+                <div class="activity-bp">
+                    <span class="bp-value">{{ activity.bp_value }} BP</span>
+                </div>
             </div>
+            {% endfor %}
         </div>
-        {% endif %}
-        {% endfor %}
 
-        {% if completed_count == 0 %}
-        <div class="empty-state">
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" style="display: none;">
             <div class="empty-icon">🔍</div>
-            <h3>Пока нет завершённых активностей</h3>
-            <p>Начните отмечать активности, чтобы увидеть их здесь!</p>
+            <h3>Нет активностей по выбранным фильтрам</h3>
+            <p>Попробуйте изменить фильтры или сбросить их</p>
+            <button class="btn btn-primary" onclick="resetFilters()">Сбросить фильтры</button>
         </div>
-        {% endif %}
     </div>
 
     <!-- Loading Overlay -->

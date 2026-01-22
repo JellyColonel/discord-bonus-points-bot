@@ -185,7 +185,7 @@ class Database:
                 # Column already exists
                 logger.debug("completed_at column already exists")
 
-            # Add bp_earned column to existing tables (Phase 2)
+            # Add bp_earned column to existing tables
             try:
                 cursor.execute(
                     "ALTER TABLE activities ADD COLUMN bp_earned INTEGER DEFAULT NULL"
@@ -195,7 +195,7 @@ class Database:
                 # Column already exists
                 logger.debug("bp_earned column already exists")
 
-            # Hidden activities table (Phase 2)
+            # Hidden activities table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hidden_activities (
                     user_id TEXT,
@@ -205,17 +205,6 @@ class Database:
                 )
             """)
             logger.debug("Hidden activities table created/verified")
-
-            # Hidden categories table (Phase 2)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS hidden_categories (
-                    user_id TEXT,
-                    category_id TEXT,
-                    hidden_at TEXT,
-                    PRIMARY KEY (user_id, category_id)
-                )
-            """)
-            logger.debug("Hidden categories table created/verified")
 
             # Settings table for persistent config
             cursor.execute("""
@@ -258,12 +247,6 @@ class Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_hidden_activities_user
                 ON hidden_activities(user_id)
-            """)
-
-            # Index for hidden categories lookup
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_hidden_categories_user
-                ON hidden_categories(user_id)
             """)
 
             logger.debug("Activity indexes created/verified")
@@ -519,7 +502,7 @@ class Database:
             return [(row[0], row[1]) for row in results]
 
     # =========================================================================
-    # Hidden Activities methods (Phase 2)
+    # Hidden Activities methods
     # =========================================================================
 
     def get_hidden_activities(self, user_id: int) -> List[str]:
@@ -584,75 +567,6 @@ class Database:
                 WHERE user_id = ? AND activity_id = ?
             """,
                 (str(user_id), activity_id),
-            )
-            return cursor.fetchone() is not None
-
-    # =========================================================================
-    # Hidden Categories methods (Phase 2)
-    # =========================================================================
-
-    def get_hidden_categories(self, user_id: int) -> List[str]:
-        """Get list of hidden category IDs for a user."""
-        with self.get_cursor(commit=False) as cursor:
-            cursor.execute(
-                "SELECT category_id FROM hidden_categories WHERE user_id = ?",
-                (str(user_id),),
-            )
-            results = cursor.fetchall()
-            category_ids = [row[0] for row in results]
-            logger.debug(f"User {user_id} has {len(category_ids)} hidden categories")
-            return category_ids
-
-    def hide_category(self, user_id: int, category_id: str) -> bool:
-        """Hide a category for a user.
-
-        Returns True if the category was hidden, False if already hidden.
-        """
-        logger.info(f"User {user_id} hiding category {category_id}")
-        with self.get_cursor() as cursor:
-            try:
-                cursor.execute(
-                    """
-                    INSERT INTO hidden_categories (user_id, category_id, hidden_at)
-                    VALUES (?, ?, ?)
-                """,
-                    (str(user_id), category_id, datetime.now(timezone.utc).isoformat()),
-                )
-                return True
-            except sqlite3.IntegrityError:
-                # Already hidden
-                logger.debug(
-                    f"Category {category_id} already hidden for user {user_id}"
-                )
-                return False
-
-    def unhide_category(self, user_id: int, category_id: str) -> bool:
-        """Unhide a category for a user.
-
-        Returns True if the category was unhidden, False if wasn't hidden.
-        """
-        logger.info(f"User {user_id} unhiding category {category_id}")
-        with self.get_cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM hidden_categories WHERE user_id = ? AND category_id = ?",
-                (str(user_id), category_id),
-            )
-            deleted = cursor.rowcount > 0
-            if not deleted:
-                logger.debug(
-                    f"Category {category_id} was not hidden for user {user_id}"
-                )
-            return deleted
-
-    def is_category_hidden(self, user_id: int, category_id: str) -> bool:
-        """Check if a category is hidden for a user."""
-        with self.get_cursor(commit=False) as cursor:
-            cursor.execute(
-                """
-                SELECT 1 FROM hidden_categories
-                WHERE user_id = ? AND category_id = ?
-            """,
-                (str(user_id), category_id),
             )
             return cursor.fetchone() is not None
 

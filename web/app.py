@@ -18,11 +18,7 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 
 from flask_session import Session
-from web.activities import (
-    CATEGORIES,
-    get_activity_by_id,
-    get_all_activities,
-)
+from web.activities import get_activity_by_id, get_all_activities
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth
 from web.config import WebConfig
 
@@ -148,27 +144,6 @@ def validate_activity_id(value: Any) -> tuple[bool, str]:
         return False, "Invalid activity_id format"
     if len(value) > 50:
         return False, "activity_id too long"
-    return True, ""
-
-
-def validate_category_id(value: Any) -> tuple[bool, str]:
-    """Validate category_id format.
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if not value:
-        return False, "Missing category_id"
-    if not isinstance(value, str):
-        return False, "category_id must be a string"
-    # Category IDs should only contain alphanumeric chars and underscores
-    if not all(c.isalnum() or c == "_" for c in value):
-        return False, "Invalid category_id format"
-    if len(value) > 50:
-        return False, "category_id too long"
-    # Check if category exists
-    if value not in CATEGORIES:
-        return False, "Category not found"
     return True, ""
 
 
@@ -321,7 +296,7 @@ def dashboard() -> str:
 @app.route("/settings")
 @require_auth
 def settings() -> str:
-    """Settings page for managing hidden activities and categories."""
+    """Settings page for managing hidden activities."""
     user = session["user"]
     user_id = int(user["id"])
 
@@ -332,9 +307,7 @@ def settings() -> str:
         "settings.html",
         user=user,
         activities=data["activities"],
-        categories=data["categories"],
         hidden_activities=data["hidden_activities"],
-        hidden_categories=data["hidden_categories"],
     )
 
 
@@ -522,7 +495,7 @@ def api_toggle_event() -> Response | tuple[Response, int]:
 
 
 # ============================================================================
-# API Routes - Hidden Activities & Categories
+# API Routes - Hidden Activities
 # ============================================================================
 
 
@@ -530,16 +503,14 @@ def api_toggle_event() -> Response | tuple[Response, int]:
 @require_auth
 @rate_limit(max_requests=30, window_seconds=60)
 def api_hidden_items() -> Response | tuple[Response, int]:
-    """Get all hidden activities and categories for the user."""
+    """Get all hidden activities for the user."""
     user_id = int(session["user"]["id"])
 
     try:
         hidden_activities = db.get_hidden_activities(user_id)
-        hidden_categories = db.get_hidden_categories(user_id)
 
         return api_success(
             hidden_activities=hidden_activities,
-            hidden_categories=hidden_categories,
         )
     except Exception:
         logger.exception(f"Error fetching hidden items for user {user_id}")
@@ -610,66 +581,6 @@ def api_unhide_activity() -> Response | tuple[Response, int]:
         return api_error("Failed to unhide activity", 500)
 
 
-@app.route("/api/hide_category", methods=["POST"])
-@require_auth
-@rate_limit(max_requests=30, window_seconds=60)
-def api_hide_category() -> Response | tuple[Response, int]:
-    """Hide a category for the user."""
-    user_id = int(session["user"]["id"])
-    data = request.json
-
-    if not data:
-        return api_error("Missing request body")
-
-    # Validate category_id
-    is_valid, error_msg = validate_category_id(data.get("category_id"))
-    if not is_valid:
-        return api_error(error_msg)
-    category_id = data.get("category_id")
-
-    try:
-        was_hidden = db.hide_category(user_id, category_id)
-        logger.info(f"User {user_id} hid category {category_id}")
-        return api_success(
-            category_id=category_id,
-            hidden=True,
-            was_already_hidden=not was_hidden,
-        )
-    except Exception:
-        logger.exception(f"Error hiding category {category_id} for user {user_id}")
-        return api_error("Failed to hide category", 500)
-
-
-@app.route("/api/unhide_category", methods=["POST"])
-@require_auth
-@rate_limit(max_requests=30, window_seconds=60)
-def api_unhide_category() -> Response | tuple[Response, int]:
-    """Unhide a category for the user."""
-    user_id = int(session["user"]["id"])
-    data = request.json
-
-    if not data:
-        return api_error("Missing request body")
-
-    # Validate category_id
-    is_valid, error_msg = validate_category_id(data.get("category_id"))
-    if not is_valid:
-        return api_error(error_msg)
-    category_id = data.get("category_id")
-
-    try:
-        was_unhidden = db.unhide_category(user_id, category_id)
-        logger.info(f"User {user_id} unhid category {category_id}")
-        return api_success(
-            category_id=category_id,
-            hidden=False,
-            was_already_visible=not was_unhidden,
-        )
-    except Exception:
-        logger.exception(f"Error unhiding category {category_id} for user {user_id}")
-        return api_error("Failed to unhide category", 500)
-
-
 # ============================================================================
 # API Routes - User Data
 # ============================================================================
@@ -689,7 +600,6 @@ def api_user_data() -> Response | tuple[Response, int]:
         completed_activities = db.get_user_completed_activities(user_id, today)
         event_active = is_event_active(db, user_id)
         hidden_activities = db.get_hidden_activities(user_id)
-        hidden_categories = db.get_hidden_categories(user_id)
 
         return api_success(
             vip_status=vip_status,
@@ -697,7 +607,6 @@ def api_user_data() -> Response | tuple[Response, int]:
             completed_activities=completed_activities,
             event_active=event_active,
             hidden_activities=hidden_activities,
-            hidden_categories=hidden_categories,
         )
     except Exception:
         logger.exception(f"Error fetching user data for user {user_id}")
