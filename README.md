@@ -1,10 +1,10 @@
-# 💎 Bonus Points Web Dashboard
+# Bonus Points Web Dashboard
 
 A web dashboard for tracking daily bonus points activities. Features VIP support, BP balance tracking, and an intuitive web interface for managing activities.
 
 > **Note:** This is the web-only version. The Discord bot has been removed.
 
-## ✨ Features
+## Features
 
 ### Core Features
 - **40+ Daily Activities** — Track solo and paired activities
@@ -34,7 +34,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Docker Support** — `docker-compose up --build` for containerized deployment
 - **22 Tests** — Database and API endpoint test coverage
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -72,10 +72,35 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
    ```bash
    python run.py
    ```
-   
+
    The web dashboard will be available at http://localhost:5000
 
-## ⚙️ Configuration
+### Docker Setup
+
+1. **Configure the application**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your configuration
+   ```
+
+2. **Build and run**
+   ```bash
+   docker-compose up --build
+   ```
+
+   The container runs Gunicorn with 4 workers on port 5000. Data and logs are persisted via volume mounts (`./data` and `./logs`).
+
+   To run in the background:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+   To stop:
+   ```bash
+   docker-compose down
+   ```
+
+## Configuration
 
 Create a `.env` file with the following variables:
 
@@ -103,7 +128,7 @@ WEB_DEBUG=False
 5. Add redirect URI: `http://localhost:5000/callback`
 6. Under OAuth2 > URL Generator, select scopes: `identify`, `guilds`
 
-## 🌐 Web Dashboard
+## Web Dashboard
 
 Access the web dashboard at `http://localhost:5000` (or your configured host).
 
@@ -119,25 +144,55 @@ Access the web dashboard at `http://localhost:5000` (or your configured host).
 - **Statistics Cards** — Balance, progress bar, earned today, and remaining BP
 - **Settings Page** — VIP/event toggle, balance control, hide activities, reset today's completions
 
-### Deployment Options:
+### Deployment Options
 
-#### Option 1: Local Development
+#### Local Development
 ```bash
 python run.py
 ```
 
-#### Option 2: Production with Gunicorn
+#### Production with PM2
+
+PM2 manages the Gunicorn process with auto-restart and log rotation.
+
 ```bash
-gunicorn -w 4 -b 0.0.0.0:5000 web.app:app
+# Start
+pm2 start "gunicorn -w 4 -b 0.0.0.0:5000 web.app:app" --name bonus-points
+
+# Save process list so PM2 restores it after reboot
+pm2 save
+
+# Enable PM2 startup on boot (run the command it outputs)
+pm2 startup
 ```
 
-#### Option 3: Cloudflare Tunnel (Recommended for Public Access)
+Common commands:
+```bash
+pm2 status              # Process status
+pm2 logs bonus-points   # Live log output
+pm2 restart bonus-points
+pm2 stop bonus-points
+pm2 delete bonus-points # Remove from PM2
+```
+
+To update after a `git pull`:
+```bash
+pip install -r requirements.txt  # If dependencies changed
+pm2 restart bonus-points
+```
+
+#### Docker
+```bash
+docker-compose up --build -d
+```
+
+#### Cloudflare Tunnel (Recommended for Public Access)
 No VPS or port forwarding needed:
 ```bash
 cloudflared tunnel --url http://localhost:5000
 ```
 
-## 🎯 BP Balance System
+## BP Balance System
 
 The dashboard tracks your total BP balance persistently:
 
@@ -153,7 +208,7 @@ The dashboard tracks your total BP balance persistently:
 - **With Event**: 2x multiplier
 - **VIP + Event**: 4x multiplier
 
-## 🎉 Event System
+## Event System
 
 Administrators can enable x2 BP events that double all rewards. Events persist across restarts and are stored in the database.
 
@@ -163,7 +218,7 @@ POST /api/toggle_event
 Body: {"event_status": true}
 ```
 
-## 📊 Database Schema
+## Database Schema
 
 The application uses SQLite with the following tables:
 
@@ -173,7 +228,7 @@ The application uses SQLite with the following tables:
 - **hidden_activities** — Per-user hidden activity preferences
 - **settings** — Key-value persistent configuration
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 bonus_points_bot/
@@ -218,7 +273,7 @@ bonus_points_bot/
 └── CLAUDE.md                  # AI assistant instructions
 ```
 
-## 🔧 Development
+## Development
 
 ### Adding New Activities
 
@@ -227,7 +282,7 @@ Edit `web/activities.py` — append to the `ACTIVITIES` list:
 ```python
 {
     "id": "unique_id",           # Alphanumeric + underscore, max 50 chars
-    "name": "🎯 Display Name",   # Shown on dashboard
+    "name": "Display Name",      # Shown on dashboard
     "bp": 2,                     # Base BP reward
     "type": "solo",              # "solo" or "pair"
     "time": "low",               # "low", "medium", or "high"
@@ -251,7 +306,7 @@ ruff check web/     # Linter
 - **Behavior**: Edit `web/static/js/dashboard.js`
 - **Colors**: Modify CSS variables in `:root` selector
 
-## 📝 Logging
+## Logging
 
 Logs are stored in `logs/web.log` with:
 - Server startup and shutdown
@@ -260,7 +315,7 @@ Logs are stored in `logs/web.log` with:
 - Balance changes
 - Error messages with stack traces
 
-## 🛠 Troubleshooting
+## Troubleshooting
 
 ### Web dashboard not accessible
 - Ensure Flask is running (check console output)
@@ -278,7 +333,7 @@ Logs are stored in `logs/web.log` with:
   - Ensure redirect URI in `.env` matches Discord Developer Portal exactly
   - Include protocol (http:// or https://)
 
-## 💡 Tips
+## Tips
 
 - **Web Dashboard**: Best for managing multiple activities at once
 - **VIP Status**: Toggle via the VIP badge on dashboard
@@ -286,7 +341,7 @@ Logs are stored in `logs/web.log` with:
 - **Mobile**: Dashboard is fully responsive - use on any device
 - **Completion History**: Completed tab shows most recent activities first
 
-## 🔐 Security Notes
+## Security Notes
 
 - Never commit `.env` file to git
 - Keep `SECRET_KEY` random and secure (generate with `secrets.token_hex(32)`)
@@ -294,10 +349,6 @@ Logs are stored in `logs/web.log` with:
 - Use HTTPS in production (Cloudflare Tunnel provides this)
 - Regularly update dependencies for security patches
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-Made with ❤️ for tracking daily activities and staying motivated!
