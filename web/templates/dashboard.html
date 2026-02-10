@@ -4,81 +4,102 @@
 
 {% block content %}
 <div class="dashboard">
-    <!-- Stats Header -->
-    <div class="stats-header">
-        <div class="stat-card">
-            <div class="stat-icon">💰</div>
-            <h3>Баланс (BP)</h3>
-            <p class="stat-value" id="balance-display">{{ balance }}</p>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <h3>Прогресс</h3>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill" style="width: {{ progress_percentage }}%"></div>
+    <!-- Compact Control Panel (Stats + Search + Filters) -->
+    <div class="control-panel">
+        <!-- Row 1: Stats -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-icon">💰</span>
+                <span class="stat-label">Баланс</span>
+                <span class="stat-value" id="balance-display">{{ balance }}</span>
+                <span class="stat-unit">BP</span>
             </div>
-            <p class="stat-value"><span id="completed-count">{{ completed_count }}</span> / <span id="total-count">{{ total_activities }}</span></p>
+
+            <div class="stat-divider"></div>
+
+            <div class="stat-item stat-item-progress">
+                <span class="stat-icon">📊</span>
+                <span class="stat-label">Прогресс</span>
+                <div class="progress-inline">
+                    <div class="progress-bar-mini">
+                        <div class="progress-fill" id="progress-fill" style="width: {{ progress_percentage }}%"></div>
+                    </div>
+                    <span class="stat-value"><span id="completed-count">{{ completed_count }}</span>/<span id="total-count">{{ total_activities }}</span></span>
+                </div>
+            </div>
+
+            <div class="stat-divider"></div>
+
+            <div class="stat-item">
+                <span class="stat-icon">✨</span>
+                <span class="stat-label">Сегодня</span>
+                <span class="stat-value stat-earned" id="earned-display">+{{ total_earned }}</span>
+                <span class="stat-unit">BP</span>
+            </div>
+
+            <div class="stat-divider"></div>
+
+            <div class="stat-item">
+                <span class="stat-icon">🎯</span>
+                <span class="stat-label">Осталось</span>
+                <span class="stat-value stat-remaining" id="remaining-display">{{ total_remaining }}</span>
+                <span class="stat-unit">BP</span>
+            </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon">✨</div>
-            <h3>Заработано Сегодня (BP)</h3>
-            <p class="stat-value earned" id="earned-display">{{ total_earned }}</p>
-        </div>
+        <!-- Row 2: Search + Filters -->
+        <div class="search-row">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text"
+                       id="activity-search"
+                       placeholder="Поиск активностей..."
+                       autocomplete="off">
+                <button class="search-clear" id="search-clear" style="display: none;">✕</button>
+            </div>
 
-        <div class="stat-card">
-            <div class="stat-icon">🎯</div>
-            <h3>Осталось (BP)</h3>
-            <p class="stat-value remaining" id="remaining-display">{{ total_remaining }}</p>
+            <div class="filters-inline">
+                <div class="filter-group">
+                    <label for="filter-type">Тип:</label>
+                    <select id="filter-type" class="filter-select">
+                        <option value="all">Все</option>
+                        <option value="solo">Одиночные</option>
+                        <option value="pair">Парные</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filter-time">Время выполнения:</label>
+                    <select id="filter-time" class="filter-select">
+                        <option value="all">Все</option>
+                        <option value="low">Быстро</option>
+                        <option value="medium">Средне</option>
+                        <option value="high">Долго</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-secondary btn-reset-filters" id="reset-filters" style="display: none;">
+                    Сбросить
+                </button>
+            </div>
+
+            <div class="filter-results-count" id="filter-results-count">
+                <span id="visible-count">{{ activities|length }}</span> из <span id="filtered-total">{{ activities|length }}</span>
+            </div>
         </div>
     </div>
 
-    <!-- Search & Filters -->
-    <div class="search-filter-container">
-        <!-- Search Box -->
-        <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text"
-                   id="activity-search"
-                   placeholder="Поиск активностей..."
-                   autocomplete="off">
-            <button class="search-clear" id="search-clear" style="display: none;">✕</button>
-        </div>
-
-        <!-- Filters -->
-        <div class="filters-row">
-            <div class="filter-group">
-                <label for="filter-type">Тип:</label>
-                <select id="filter-type" class="filter-select">
-                    <option value="all">Все</option>
-                    <option value="solo">Одиночные</option>
-                    <option value="pair">Парные</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label for="filter-time">Время:</label>
-                <select id="filter-time" class="filter-select">
-                    <option value="all">Все</option>
-                    <option value="low">Быстро</option>
-                    <option value="medium">Средне</option>
-                    <option value="high">Долго</option>
-                </select>
-            </div>
-
-            <button class="btn btn-secondary btn-reset-filters" id="reset-filters" style="display: none;">
-                Сбросить
+    <!-- Activities Tabs -->
+    <div class="activities-container">
+        <div class="tabs-header">
+            <button class="tab-btn active" data-tab="active" id="tab-active">
+                🎯 Активные <span class="tab-count" id="active-count">0</span>
+            </button>
+            <button class="tab-btn" data-tab="completed" id="tab-completed">
+                ✅ Выполненные <span class="tab-count" id="completed-tab-count">0</span>
             </button>
         </div>
 
-        <div class="filter-results-count" id="filter-results-count">
-            Показано: <span id="visible-count">{{ activities|length }}</span> из <span id="filtered-total">{{ activities|length }}</span>
-        </div>
-    </div>
-
-    <!-- Activities Grid (Flat, no categories) -->
-    <div class="activities-container">
         <div class="activity-grid" id="activity-grid">
             {% for activity in activities %}
             <div class="activity-card {% if activity.completed %}completed{% endif %}"
@@ -106,10 +127,10 @@
 
         <!-- Empty State -->
         <div class="empty-state" id="empty-state" style="display: none;">
-            <div class="empty-icon">🔍</div>
-            <h3>Нет активностей по выбранным фильтрам</h3>
-            <p>Попробуйте изменить фильтры или сбросить их</p>
-            <button class="btn btn-primary" onclick="resetFilters()">Сбросить фильтры</button>
+            <div class="empty-icon" id="empty-icon">🔍</div>
+            <h3 id="empty-title">Нет активностей</h3>
+            <p id="empty-description">Попробуйте изменить фильтры или сбросить их</p>
+            <button class="btn btn-primary" id="empty-action" onclick="resetFilters()">Сбросить фильтры</button>
         </div>
     </div>
 

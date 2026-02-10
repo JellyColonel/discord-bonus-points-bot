@@ -8,28 +8,12 @@ let isLoading = false;
 /** @type {string} Local storage key for filters */
 const FILTER_STORAGE_KEY = 'bp_dashboard_filters';
 
+/** @type {string} Current active tab ('active' or 'completed') */
+let currentTab = 'active';
+
 // =================================================================
 // Utility Functions
 // =================================================================
-
-/**
- * Creates a debounced version of a function that delays execution
- * until after the specified wait time has elapsed since the last call.
- * @param {Function} func - The function to debounce
- * @param {number} wait - The delay in milliseconds
- * @returns {Function} The debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 /**
  * Get CSRF token from meta tag for secure API requests.
@@ -69,6 +53,25 @@ function showToast(message, type = 'success') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+/**
+ * Creates a debounced version of a function that delays execution
+ * until after the specified wait time has elapsed since the last call.
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - The delay in milliseconds
+ * @returns {Function} The debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // =================================================================
@@ -149,6 +152,8 @@ function applyFilters() {
     const activityGrid = document.getElementById('activity-grid');
 
     let visibleCount = 0;
+    let activeCount = 0;
+    let completedCount = 0;
     const totalCount = cards.length;
 
     cards.forEach(card => {
@@ -156,11 +161,26 @@ function applyFilters() {
         const cardTime = card.getAttribute('data-time');
         const cardName = card.getAttribute('data-name') || '';
         const cardId = card.getAttribute('data-activity-id').toLowerCase();
+        const isCompleted = card.getAttribute('data-completed') === 'true';
+
+        // Count for tabs (before other filters)
+        if (isCompleted) {
+            completedCount++;
+        } else {
+            activeCount++;
+        }
 
         let visible = true;
 
+        // Filter by tab (active vs completed)
+        if (currentTab === 'active' && isCompleted) {
+            visible = false;
+        } else if (currentTab === 'completed' && !isCompleted) {
+            visible = false;
+        }
+
         // Filter by type
-        if (filters.type !== 'all' && cardType !== filters.type) {
+        if (visible && filters.type !== 'all' && cardType !== filters.type) {
             visible = false;
         }
 
@@ -185,14 +205,48 @@ function applyFilters() {
         }
     });
 
-    // Update counts display
-    document.getElementById('visible-count').textContent = visibleCount;
-    document.getElementById('filtered-total').textContent = totalCount;
+    // Update tab counts
+    document.getElementById('active-count').textContent = activeCount;
+    document.getElementById('completed-tab-count').textContent = completedCount;
 
-    // Show/hide empty state
+    // Update filter results count
+    const tabTotal = currentTab === 'active' ? activeCount : completedCount;
+    document.getElementById('visible-count').textContent = visibleCount;
+    document.getElementById('filtered-total').textContent = tabTotal;
+
+    // Show/hide empty state with context-aware messages
     if (visibleCount === 0) {
         emptyState.style.display = 'block';
         activityGrid.style.display = 'none';
+
+        const emptyIcon = document.getElementById('empty-icon');
+        const emptyTitle = document.getElementById('empty-title');
+        const emptyDescription = document.getElementById('empty-description');
+        const emptyAction = document.getElementById('empty-action');
+
+        if (tabTotal === 0) {
+            // No activities in this tab at all
+            if (currentTab === 'active') {
+                emptyIcon.textContent = '🎉';
+                emptyTitle.textContent = 'Все активности выполнены!';
+                emptyDescription.textContent = 'Отличная работа! Посмотрите выполненные во вкладке "Выполненные"';
+                emptyAction.textContent = 'Выполненные';
+                emptyAction.onclick = () => switchTab('completed');
+            } else {
+                emptyIcon.textContent = '📋';
+                emptyTitle.textContent = 'Нет выполненных активностей';
+                emptyDescription.textContent = 'Выполненные активности появятся здесь';
+                emptyAction.textContent = 'К активным';
+                emptyAction.onclick = () => switchTab('active');
+            }
+        } else {
+            // Filtered out
+            emptyIcon.textContent = '🔍';
+            emptyTitle.textContent = 'Нет активностей по фильтрам';
+            emptyDescription.textContent = 'Попробуйте изменить фильтры или сбросить их';
+            emptyAction.textContent = 'Сбросить фильтры';
+            emptyAction.onclick = resetFilters;
+        }
     } else {
         emptyState.style.display = 'none';
         activityGrid.style.display = 'grid';
@@ -203,6 +257,54 @@ function applyFilters() {
 
     // Save filters (dropdowns only)
     saveFiltersToStorage();
+}
+
+/**
+ * Switch to a different tab.
+ * @param {string} tab - The tab to switch to ('active' or 'completed')
+ */
+function switchTab(tab) {
+    currentTab = tab;
+
+    // Update tab button styles
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === tab) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Re-apply filters with new tab
+    applyFilters();
+
+    // Save tab preference
+    localStorage.setItem('bp_dashboard_tab', tab);
+}
+
+/**
+ * Initialize tab event listeners.
+ */
+function initializeTabs() {
+    // Load saved tab preference
+    const savedTab = localStorage.getItem('bp_dashboard_tab');
+    if (savedTab === 'active' || savedTab === 'completed') {
+        currentTab = savedTab;
+    }
+
+    // Set initial active state
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === currentTab) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+
+        // Add click listeners
+        btn.addEventListener('click', () => {
+            switchTab(btn.getAttribute('data-tab'));
+        });
+    });
 }
 
 /**
@@ -313,15 +415,20 @@ async function toggleActivity(activityId, completed) {
         const data = await response.json();
 
         if (data.success) {
-            // Update card visual state
+            // Update card state
             const card = document.querySelector(`[data-activity-id="${activityId}"]`);
             if (card) {
+                // Update data attribute first (needed for filtering)
+                card.setAttribute('data-completed', completed ? 'true' : 'false');
+
+                // Hide card immediately (before visual transition)
+                card.classList.add('filter-hidden');
+
+                // Update visual state (will be visible when user switches tabs)
                 if (completed) {
                     card.classList.add('completed');
-                    card.setAttribute('data-completed', 'true');
                 } else {
                     card.classList.remove('completed');
-                    card.setAttribute('data-completed', 'false');
                 }
 
                 // Update BP value display if it changed
@@ -334,8 +441,9 @@ async function toggleActivity(activityId, completed) {
             // Update balance display
             document.getElementById('balance-display').textContent = data.new_balance;
 
-            // Refresh stats
+            // Refresh stats and tab counts
             await refreshStats();
+            applyFilters();  // Update tab counts
 
             showToast(
                 `Активность ${completed ? 'выполнена' : 'отменена'} (${data.bp_change > 0 ? '+' : ''}${data.bp_change} BP)`,
@@ -440,6 +548,9 @@ function initializeClickableCards() {
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tabs first (before filters)
+    initializeTabs();
+
     // Initialize filters (loads from storage and applies)
     initializeFilters();
 
