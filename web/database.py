@@ -338,31 +338,37 @@ class Database:
             )
 
     def add_user_bp(self, user_id: int, amount: int) -> int:
-        """Add BP to user's balance.
-
-        Note: This is not atomic - for high-concurrency scenarios,
-        consider using a single UPDATE with arithmetic.
-        """
-        current_balance = self.get_user_bp_balance(user_id)
-        new_balance = current_balance + amount
-        self.set_user_bp_balance(user_id, new_balance)
-        logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} -> {new_balance})"
-        )
+        """Add BP to user's balance atomically."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (user_id, bp_balance) VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET bp_balance = bp_balance + ?
+            """,
+                (str(user_id), amount, amount),
+            )
+            cursor.execute(
+                "SELECT bp_balance FROM users WHERE user_id = ?", (str(user_id),)
+            )
+            new_balance = cursor.fetchone()[0]
+        logger.info(f"User {user_id} earned {amount} BP (New balance: {new_balance})")
         return new_balance
 
     def subtract_user_bp(self, user_id: int, amount: int) -> int:
-        """Subtract BP from user's balance.
-
-        Note: This is not atomic - for high-concurrency scenarios,
-        consider using a single UPDATE with arithmetic.
-        """
-        current_balance = self.get_user_bp_balance(user_id)
-        new_balance = current_balance - amount
-        self.set_user_bp_balance(user_id, new_balance)
-        logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} -> {new_balance})"
-        )
+        """Subtract BP from user's balance atomically. Floor at 0."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (user_id, bp_balance) VALUES (?, 0)
+                ON CONFLICT(user_id) DO UPDATE SET bp_balance = MAX(bp_balance - ?, 0)
+            """,
+                (str(user_id), amount),
+            )
+            cursor.execute(
+                "SELECT bp_balance FROM users WHERE user_id = ?", (str(user_id),)
+            )
+            new_balance = cursor.fetchone()[0]
+        logger.info(f"User {user_id} lost {amount} BP (New balance: {new_balance})")
         return new_balance
 
     # =========================================================================

@@ -31,11 +31,15 @@ def _cleanup_old_requests(user_id: str, window_seconds: int) -> None:
         user_id: User identifier
         window_seconds: Time window in seconds
     """
+    if user_id not in _rate_limit_store:
+        return
     now = time.time()
     cutoff = now - window_seconds
     _rate_limit_store[user_id] = [
         ts for ts in _rate_limit_store[user_id] if ts > cutoff
     ]
+    if not _rate_limit_store[user_id]:
+        del _rate_limit_store[user_id]
 
 
 def _is_rate_limited(user_id: str, max_requests: int, window_seconds: int) -> bool:
