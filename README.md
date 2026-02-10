@@ -156,6 +156,7 @@ Access the web dashboard at `http://localhost:5000` (or your configured host).
 ### Deployment Options
 
 #### Local Development
+Activate the virtual environment first (see [Installation](#installation)), then:
 ```bash
 python run.py
 ```
