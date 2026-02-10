@@ -1,9 +1,8 @@
 // =================================================================
 // Dashboard Interactivity
 // =================================================================
-
-/** @type {boolean} Whether an API request is in progress */
-let isLoading = false;
+// Shared utilities (isLoading, getCsrfToken, showLoading,
+// hideLoading, showToast) are loaded from common.js
 
 /** @type {string} Local storage key for filters */
 const FILTER_STORAGE_KEY = 'bp_dashboard_filters';
@@ -14,46 +13,6 @@ let currentTab = 'active';
 // =================================================================
 // Utility Functions
 // =================================================================
-
-/**
- * Get CSRF token from meta tag for secure API requests.
- * @returns {string} The CSRF token
- */
-function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]').content;
-}
-
-/**
- * Show the loading overlay and set loading state.
- */
-function showLoading() {
-    document.getElementById('loading-overlay').style.display = 'flex';
-    isLoading = true;
-}
-
-/**
- * Hide the loading overlay and clear loading state.
- */
-function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-    isLoading = false;
-}
-
-/**
- * Display a toast notification message.
- * @param {string} message - The message to display
- * @param {'success'|'error'} [type='success'] - The type of notification
- */
-function showToast(message, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
 
 /**
  * Creates a debounced version of a function that delays execution
