@@ -7,27 +7,32 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 ## ✨ Features
 
 ### Core Features
-- **40+ Daily Activities** - Track solo and paired activities
-- **BP Balance System** - Persistent balance tracking across days
-- **VIP Support** - Double rewards for VIP users (toggleable)
-- **x2 Events** - Admin-toggleable double BP events
-- **Daily Reset** - Activities reset at 07:00 Moscow Time (04:00 UTC)
-- **Completion Timestamps** - Track when activities were completed (sorted by most recent)
+- **40+ Daily Activities** — Track solo and paired activities
+- **BP Balance System** — Persistent balance tracking across days
+- **VIP Support** — Double rewards for VIP users (toggleable)
+- **x2 Events** — Per-user double BP events
+- **Daily Reset** — Activities reset at 07:00 Moscow Time (04:00 UTC)
+- **Completion Timestamps** — Shows local time when each activity was completed
+- **Repeatable Activities** — Activities like "3 hours online" can be completed multiple times per day with +/- controls
+- **Activity Help Tooltips** — Hover `?` icon for activity descriptions
+- **Hidden Activities** — Hide irrelevant activities from your dashboard
+- **Activity Reset** — Clear all today's completions without changing BP balance
 
 ### Web Dashboard
-- **Discord OAuth2 Login** - Secure authentication with your Discord account
-- **Real-time Updates** - Dynamic activity management without page reloads
-- **Mobile Responsive** - Clean interface that works on all devices
-- **Activity Search** - Quickly find activities among 40+ options
-- **Progress Tracking** - Visual progress bars and statistics
-- **Tabbed Interface** - Separate views for active and completed activities
-- **One-Click VIP Toggle** - Easy VIP status management
-- **Balance Management** - Set balance directly from the dashboard
+- **Discord OAuth2 Login** — Secure authentication with your Discord account
+- **Real-time Updates** — Dynamic activity management without page reloads
+- **Mobile Responsive** — Clean interface that works on all devices
+- **Activity Search** — Quickly find activities among 40+ options
+- **Progress Tracking** — Visual progress bars and statistics
+- **Tabbed Interface** — Separate views for active and completed activities
+- **Settings Page** — VIP/event toggle, balance control, hidden activities, activity reset
 
-### Performance Optimizations
-- **Activity Caching** - O(1) lookups for fast operations
-- **Database Indexing** - Optimized queries for fast performance
-- **WAL Mode** - Better concurrent access for web server
+### Performance & Infrastructure
+- **Activity Caching** — O(1) lookups for fast operations
+- **Database Indexing** — Optimized queries for fast performance
+- **WAL Mode** — Better concurrent access for web server
+- **Docker Support** — `docker-compose up --build` for containerized deployment
+- **22 Tests** — Database and API endpoint test coverage
 
 ## 🚀 Quick Start
 
@@ -103,14 +108,16 @@ WEB_DEBUG=False
 Access the web dashboard at `http://localhost:5000` (or your configured host).
 
 ### Features:
-- **Activity Management** - Check/uncheck activities with real-time updates
-- **Search & Filter** - Find activities quickly with search functionality
+- **Activity Management** — Check/uncheck activities with real-time updates
+- **Repeatable Activities** — +/- counter for activities that can be completed multiple times (e.g. "3 hours online")
+- **Completion Timestamps** — Shows local time (e.g. "в 14:30") for each completed activity
+- **Help Tooltips** — Hover the `?` icon on activities with descriptions
+- **Search & Filter** — Find activities by name, type (solo/pair), or time investment
 - **Two Tabs:**
-  - **Active Activities** - Uncompleted activities in category order
-  - **Completed Activities** - Recently completed activities (newest first)
-- **VIP Toggle** - Click the VIP badge to toggle status
-- **Balance Control** - Set your balance directly from the interface
-- **Statistics Cards** - View balance, progress, earned today, and remaining BP
+  - **Active Activities** — Uncompleted activities in definition order
+  - **Completed Activities** — Recently completed activities (newest first)
+- **Statistics Cards** — Balance, progress bar, earned today, and remaining BP
+- **Settings Page** — VIP/event toggle, balance control, hide activities, reset today's completions
 
 ### Deployment Options:
 
@@ -160,56 +167,81 @@ Body: {"event_status": true}
 
 The application uses SQLite with the following tables:
 
-- **users** - Stores user VIP status and BP balance
-- **activities** - Tracks daily activity completions with timestamps
-- **settings** - Persistent configuration (event status, etc.)
+- **users** — VIP status (`vip_status`), BP balance (`bp_balance`), event flag (`event_active`)
+- **activities** — Daily activity completions with `completed_at` timestamp and `bp_earned` snapshot. UNIQUE on `(user_id, activity_id, date)`
+- **repeatable_completions** — Multiple completions per activity per day (e.g. "3 hours online"). Each row stores `bp_earned` and `completed_at`
+- **hidden_activities** — Per-user hidden activity preferences
+- **settings** — Key-value persistent configuration
 
 ## 📁 Project Structure
 
 ```
-bonus_points_web/
-├── web/                    # Web dashboard code
+bonus_points_bot/
+├── web/                        # Web dashboard code
 │   ├── __init__.py
-│   ├── app.py             # Flask application
-│   ├── auth.py            # Discord OAuth2
-│   ├── config.py          # Web configuration
-│   ├── database.py        # Database operations
-│   ├── activities.py      # Activity definitions
-│   ├── helpers.py         # Helper functions
-│   ├── templates/         # HTML templates
-│   │   ├── base.html     # Base template
-│   │   ├── dashboard.html # Main dashboard
-│   │   └── login.html    # Login page
-│   └── static/           # Static assets
+│   ├── app.py                 # Flask app factory, blueprint registration
+│   ├── auth.py                # Discord OAuth2 flow + require_auth decorator
+│   ├── config.py              # WebConfig from .env
+│   ├── database.py            # Database class (SQLite, thread-local, WAL)
+│   ├── activities.py          # Activity definitions + cached lookups
+│   ├── helpers.py             # Rate limiting, BP calc, data preparation
+│   ├── middleware.py          # Request logging, session refresh
+│   ├── validation.py          # Input validators, API response helpers
+│   ├── routes/
+│   │   ├── pages.py           # Page routes (login, dashboard, settings)
+│   │   └── api.py             # API routes (/api/* JSON endpoints)
+│   ├── templates/
+│   │   ├── base.html          # Base layout (navbar, footer)
+│   │   ├── dashboard.html     # Activity dashboard (tabs, cards, filters)
+│   │   ├── settings.html      # Settings page (VIP, balance, reset)
+│   │   └── login.html         # Login page
+│   └── static/
 │       ├── css/
-│       │   └── style.css # Dashboard styles
+│       │   └── style.css      # All styles, CSS variables, responsive
 │       └── js/
-│           └── dashboard.js # Dashboard logic
-├── data/                  # Runtime data (not in git)
-│   └── bonus_points.db   # SQLite database
-├── logs/                 # Log files (not in git)
-│   └── web.log          # Activity logs
-├── .env                  # Environment variables (not in git)
-├── .env.example         # Example environment file
-├── .gitignore          # Git ignore rules
-├── README.md           # This file
-├── requirements.txt    # Python dependencies
-└── run.py             # Main entry point
+│           ├── common.js      # Shared utilities (CSRF, loading, toasts)
+│           ├── dashboard.js   # Dashboard logic (toggle, filter, repeat)
+│           └── settings.js    # Settings logic (VIP, balance, reset)
+├── tests/
+│   ├── conftest.py            # Fixtures (temp DB, test client, auth)
+│   ├── test_database.py       # DB operation tests
+│   └── test_api.py            # API endpoint tests
+├── data/                      # Runtime data (gitignored)
+│   └── bonus_points.db
+├── logs/                      # Log files (gitignored)
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt           # Production dependencies (pinned)
+├── requirements-dev.txt       # Dev dependencies (pytest, ruff)
+├── pyproject.toml             # Ruff + pytest config
+├── run.py                     # Entry point
+└── CLAUDE.md                  # AI assistant instructions
 ```
 
 ## 🔧 Development
 
 ### Adding New Activities
 
-Edit `web/activities.py`:
+Edit `web/activities.py` — append to the `ACTIVITIES` list:
 
 ```python
 {
-    "id": "unique_id",
-    "name": "Activity Name",
-    "bp": 2,      # Base BP reward
-    "bp_vip": 4,  # VIP BP reward
+    "id": "unique_id",           # Alphanumeric + underscore, max 50 chars
+    "name": "🎯 Display Name",   # Shown on dashboard
+    "bp": 2,                     # Base BP reward
+    "type": "solo",              # "solo" or "pair"
+    "time": "low",               # "low", "medium", or "high"
+    "description": "Optional",   # Shown as ? tooltip (optional)
+    "repeatable": False,         # True for +/- counter UI (optional)
 }
+```
+
+### Running Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v    # 22 tests
+ruff check web/     # Linter
 ```
 
 ### Customizing the Dashboard
