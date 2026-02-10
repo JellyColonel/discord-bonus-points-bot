@@ -242,7 +242,6 @@ def callback() -> Response | tuple[str, int]:
             "username": display_name,  # Store display name as username for simplicity
             "discriminator": user_info.get("discriminator", "0"),
             "avatar": user_info.get("avatar"),
-            "access_token": access_token,
         }
         session.permanent = True
 
@@ -251,7 +250,7 @@ def callback() -> Response | tuple[str, int]:
 
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
-        return f"Authentication failed: {str(e)}", 500
+        return redirect(url_for("login"))
 
 
 @app.route("/logout")

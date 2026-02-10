@@ -23,6 +23,9 @@ class WebConfig:
         days=int(os.getenv("SESSION_LIFETIME_DAYS", "30"))
     )
     SESSION_USE_SIGNER: bool = True
+    SESSION_COOKIE_SECURE: bool = os.getenv("WEB_DEBUG", "False") != "True"
+    SESSION_COOKIE_HTTPONLY: bool = True
+    SESSION_COOKIE_SAMESITE: str = "Lax"
 
     # Discord OAuth2
     DISCORD_CLIENT_ID: Optional[str] = os.getenv("DISCORD_CLIENT_ID")
