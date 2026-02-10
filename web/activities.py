@@ -25,6 +25,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 1,
         "type": "solo",
         "time": "low",
+        "description": "Купите один лотерейный билет у NPC",
     },
     {
         "id": "browser",
@@ -32,6 +33,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 1,
         "type": "solo",
         "time": "low",
+        "description": "Откройте внутриигровой браузер и зайдите на любой сайт",
     },
     {
         "id": "brawl",
@@ -53,6 +55,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 1,
         "type": "solo",
         "time": "low",
+        "description": "Закажите материалы для бизнеса вручную (не автозаказ)",
     },
     {
         "id": "shooting_range",
@@ -60,6 +63,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 1,
         "type": "solo",
         "time": "low",
+        "description": "Пройдите тренировку в тире и наберите минимальный балл",
     },
     {
         "id": "film_studio",
@@ -74,6 +78,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 1,
         "type": "solo",
         "time": "low",
+        "description": "Загрузите 5 видео в кинотеатр через меню управления",
     },
     {
         "id": "surgeon",
@@ -88,6 +93,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 10,
         "type": "solo",
         "time": "low",
+        "description": "Откройте один кейс за донат-валюту (DP)",
     },
     {
         "id": "pet_ball",
@@ -109,6 +115,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 3,
         "type": "solo",
         "time": "low",
+        "description": "Сделайте одну ставку в колесе удачи внутри казино",
     },
     {
         "id": "metro",
@@ -123,6 +130,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 4,
         "type": "solo",
         "time": "low",
+        "description": "Поймайте 20 рыб на рыбалке за один день",
     },
     {
         "id": "car_repair",
@@ -203,6 +211,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 2,
         "type": "solo",
         "time": "medium",
+        "description": "Дождитесь выпадения нулей на рулетке в казино",
     },
     {
         "id": "construction",
@@ -210,6 +219,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 2,
         "type": "solo",
         "time": "medium",
+        "description": "Выполните 25 действий на работе строителя",
     },
     {
         "id": "port",
@@ -259,6 +269,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 4,
         "type": "solo",
         "time": "medium",
+        "description": "Завершите 2 квеста от любых клубов на сервере",
     },
     {
         "id": "bus",
@@ -290,6 +301,8 @@ ACTIVITIES: List[Activity] = [
         "bp": 2,
         "type": "solo",
         "time": "high",
+        "repeatable": True,
+        "description": "Провести 3 часа в онлайне на сервере. Можно выполнять несколько раз",
     },
     {
         "id": "firefighter",
@@ -318,6 +331,7 @@ ACTIVITIES: List[Activity] = [
         "bp": 4,
         "type": "solo",
         "time": "high",
+        "description": "Примите участие в двух событиях Airdrop (сброс груза)",
     },
     {
         "id": "vehicle_registration",
@@ -485,3 +499,9 @@ def get_all_activities() -> List[Activity]:
 def get_activity_by_id(activity_id: str) -> Optional[Activity]:
     """Find activity by ID. O(1) dictionary lookup."""
     return _ACTIVITIES_BY_ID_CACHE.get(activity_id)
+
+
+def is_repeatable(activity_id: str) -> bool:
+    """Check if an activity is repeatable. O(1) dictionary lookup."""
+    activity = _ACTIVITIES_BY_ID_CACHE.get(activity_id)
+    return bool(activity and activity.get("repeatable", False))

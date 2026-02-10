@@ -161,6 +161,46 @@ async function setBalance() {
 }
 
 // =================================================================
+// Reset Activities Functions
+// =================================================================
+
+/**
+ * Reset all of today's activity completions via API.
+ */
+async function resetTodayActivities() {
+    if (isLoading) return;
+
+    if (!confirm('Вы уверены? Все отметки о выполнении за сегодня будут удалены. Баланс BP не изменится.')) {
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const response = await fetch('/api/reset_today_activities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`Сброшено активностей: ${data.deleted_count}. Баланс: ${data.balance} BP`, 'success');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error resetting activities:', error);
+        showToast('Не удалось сбросить активности', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// =================================================================
 // Activity Visibility Functions
 // =================================================================
 

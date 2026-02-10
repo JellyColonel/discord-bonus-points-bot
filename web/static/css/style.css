@@ -151,6 +151,15 @@ body {
     font-size: 14px;
 }
 
+.btn-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c63b3e;
+}
+
 .btn-hide {
     background: var(--surface-light);
     color: var(--text-secondary);
@@ -693,6 +702,110 @@ body {
 
 .activity-card.completed .bp-value {
     background: var(--success);
+}
+
+/* Activity Help Tooltip */
+.activity-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--surface-light);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+    cursor: help;
+    pointer-events: auto;
+    vertical-align: middle;
+    border: 1px solid var(--border);
+}
+
+.activity-help:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Activity Timestamp */
+.activity-timestamp {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    opacity: 0.7;
+}
+
+/* =================================================================
+   Repeatable Activity Styles
+   ================================================================= */
+
+.activity-card.repeatable {
+    border-style: dashed;
+}
+
+.activity-card.repeatable:hover {
+    border-color: var(--primary-color);
+    border-style: dashed;
+}
+
+.repeat-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.repeat-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.repeat-btn-add {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.repeat-btn-add:hover {
+    background: #2d8a46;
+    transform: scale(1.1);
+}
+
+.repeat-btn-remove {
+    background: var(--danger-color);
+    color: white;
+}
+
+.repeat-btn-remove:hover:not(.disabled) {
+    background: #c63b3e;
+    transform: scale(1.1);
+}
+
+.repeat-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.repeat-count {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color);
+    min-width: 24px;
+    text-align: center;
+}
+
+.bp-value.repeatable-bp {
+    background: linear-gradient(135deg, var(--primary-color), #7c3aed);
 }
 
 /* =================================================================

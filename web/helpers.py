@@ -97,7 +97,7 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
                 return jsonify(
                     {
                         "success": False,
-                        "error": "Ð¡Ð»Ð¸ÑˆÐºÐ¾Ð¼ Ð¼Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð². ÐŸÐ¾Ð¶Ð°Ð»ÑƒÐ¹ÑÑ‚Ð°, Ð¿Ð¾Ð´Ð¾Ð¶Ð´Ð¸Ñ‚Ðµ Ð½ÐµÐ¼Ð½Ð¾Ð³Ð¾.",
+                        "error": "Слишком много запросов. Подождите немного.",
                     }
                 ), 429
 
@@ -227,20 +227,28 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     completed_bp_map = {
         item[0]: item[1] for item in completed_with_bp
     }  # activity_id -> bp_earned
+    completed_at_map = {
+        item[0]: item[2] for item in completed_with_bp
+    }  # activity_id -> completed_at
     completed_activities_set = set(completed_activities_list)
 
     # Get hidden activities
     hidden_activities = db.get_hidden_activities(user_id)
     hidden_activity_ids = get_hidden_activity_ids(db, user_id, hidden_activities)
 
+    # Get repeatable completions
+    repeatable_data = db.get_repeatable_completions(user_id, today)
+
     # Build activities list with status
     activities_with_status = _build_activities_list(
         completed_activities_list,
         completed_activities_set,
         completed_bp_map,
+        completed_at_map,
         hidden_activity_ids,
         vip_status,
         event_active,
+        repeatable_data,
     )
 
     # Calculate totals (only for visible activities)
@@ -272,9 +280,11 @@ def _build_activities_list(
     completed_activities_list: List[str],
     completed_activities_set: Set[str],
     completed_bp_map: Dict[str, Optional[int]],
+    completed_at_map: Dict[str, Optional[str]],
     hidden_activity_ids: Set[str],
     vip_status: bool,
     event_active: bool,
+    repeatable_data: Optional[Dict[str, List[Tuple[int, str]]]] = None,
 ) -> List[Dict[str, Any]]:
     """Build flat list of activities with completion status.
 
@@ -284,13 +294,18 @@ def _build_activities_list(
         completed_activities_list: List of completed activity IDs (ordered by completion time)
         completed_activities_set: Set of completed activity IDs (for fast lookup)
         completed_bp_map: Map of activity_id -> stored bp_earned
+        completed_at_map: Map of activity_id -> completed_at timestamp
         hidden_activity_ids: Set of hidden activity IDs
         vip_status: Whether user has VIP status
         event_active: Whether x2 BP event is active
+        repeatable_data: Map of activity_id -> [(bp_earned, completed_at), ...]
 
     Returns:
         List of activities with status, excluding hidden ones
     """
+    if repeatable_data is None:
+        repeatable_data = {}
+
     activities_with_status = []
 
     for activity in get_all_activities():
@@ -300,27 +315,50 @@ def _build_activities_list(
         if activity_id in hidden_activity_ids:
             continue
 
-        is_completed = activity_id in completed_activities_set
+        is_repeatable = activity.get("repeatable", False)
 
-        # For completed activities, use stored BP if available
-        # For uncompleted, calculate current BP value
-        if is_completed:
-            stored_bp = completed_bp_map.get(activity_id)
-            if stored_bp is not None:
-                bp_value = stored_bp
-            else:
-                # Fallback for old data without bp_earned
-                bp_value = calculate_bp(activity, vip_status, event_active)
-        else:
+        if is_repeatable:
+            # Repeatable activities use separate completions table
+            completions = repeatable_data.get(activity_id, [])
+            repeat_count = len(completions)
+            repeat_total_bp = sum(bp for bp, _ in completions)
+            last_completed_at = completions[0][1] if completions else None
             bp_value = calculate_bp(activity, vip_status, event_active)
 
-        activities_with_status.append(
-            {
-                **activity,
-                "completed": is_completed,
-                "bp_value": bp_value,
-            }
-        )
+            activities_with_status.append(
+                {
+                    **activity,
+                    "completed": False,  # Always "active"
+                    "repeatable": True,
+                    "repeat_count": repeat_count,
+                    "repeat_total_bp": repeat_total_bp,
+                    "completed_at": last_completed_at,
+                    "bp_value": bp_value,
+                }
+            )
+        else:
+            is_completed = activity_id in completed_activities_set
+
+            # For completed activities, use stored BP if available
+            # For uncompleted, calculate current BP value
+            if is_completed:
+                stored_bp = completed_bp_map.get(activity_id)
+                if stored_bp is not None:
+                    bp_value = stored_bp
+                else:
+                    # Fallback for old data without bp_earned
+                    bp_value = calculate_bp(activity, vip_status, event_active)
+            else:
+                bp_value = calculate_bp(activity, vip_status, event_active)
+
+            activities_with_status.append(
+                {
+                    **activity,
+                    "completed": is_completed,
+                    "completed_at": completed_at_map.get(activity_id) if is_completed else None,
+                    "bp_value": bp_value,
+                }
+            )
 
     return activities_with_status
 
@@ -332,6 +370,7 @@ def _calculate_totals(
     """Calculate total earned and remaining BP from visible activities.
 
     For earned BP, uses stored bp_earned values (not recalculated).
+    Repeatable activities add to total_earned but don't count toward progress.
 
     Args:
         activities_with_status: List of activities with completion status
@@ -346,6 +385,11 @@ def _calculate_totals(
     visible_completed = 0
 
     for activity in activities_with_status:
+        if activity.get("repeatable"):
+            # Repeatable activities contribute to earned BP but not to progress counts
+            total_earned += activity.get("repeat_total_bp", 0)
+            continue
+
         visible_total += 1
 
         if activity["completed"]:

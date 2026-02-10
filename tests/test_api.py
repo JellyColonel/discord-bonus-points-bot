@@ -157,3 +157,89 @@ def test_rate_limit_enforced(auth_session):
         )
 
     assert response.status_code == 429
+
+
+def test_toggle_activity_returns_completed_at(auth_session):
+    """Completing an activity should return completed_at timestamp."""
+    response = auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "metro", "completed": True}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert "completed_at" in data
+    assert "T" in data["completed_at"]  # ISO format
+
+
+def test_repeatable_activity_add_remove(auth_session):
+    """Repeatable activity add/remove should work."""
+    # Add
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "add"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["count"] == 1
+    assert data["bp_change"] > 0
+    assert "completed_at" in data
+    balance_after_add = data["new_balance"]
+
+    # Add again
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "add"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["count"] == 2
+
+    # Remove
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "remove"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["count"] == 1
+    assert data["bp_change"] < 0
+
+
+def test_repeatable_activity_non_repeatable_rejected(auth_session):
+    """Non-repeatable activities should be rejected."""
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "fishing", "action": "add"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is False
+    assert "not repeatable" in data["error"]
+
+
+def test_reset_today_activities(auth_session):
+    """Reset endpoint should clear completions."""
+    # Clear rate limit store from previous tests
+    from web.helpers import _rate_limit_store
+    _rate_limit_store.clear()
+
+    # Complete some activities first
+    auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "darts", "completed": True}),
+        content_type="application/json",
+    )
+
+    # Reset
+    response = auth_session.post(
+        "/api/reset_today_activities",
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert "deleted_count" in data
+    assert "balance" in data

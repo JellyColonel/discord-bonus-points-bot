@@ -102,25 +102,59 @@
 
         <div class="activity-grid" id="activity-grid">
             {% for activity in activities %}
-            <div class="activity-card {% if activity.completed %}completed{% endif %}"
+            <div class="activity-card {% if activity.completed %}completed{% endif %}{% if activity.repeatable %} repeatable{% endif %}"
                  data-activity-id="{{ activity.id }}"
                  data-name="{{ activity.name | lower }}"
                  data-type="{{ activity.type }}"
                  data-time="{{ activity.time }}"
                  data-bp="{{ activity.bp_value }}"
-                 data-completed="{{ 'true' if activity.completed else 'false' }}">
+                 data-completed="{{ 'true' if activity.completed else 'false' }}"
+                 data-completed-at="{{ activity.completed_at or '' }}"
+                 data-repeatable="{{ 'true' if activity.repeatable else 'false' }}"
+                 data-repeat-count="{{ activity.repeat_count|default(0) }}">
                 <div class="activity-header">
+                    {% if activity.repeatable %}
+                    <label>
+                        {{ activity.name }}
+                        {% if activity.description %}
+                        <span class="activity-help" title="{{ activity.description }}">?</span>
+                        {% endif %}
+                    </label>
+                    {% else %}
                     <input type="checkbox"
                            id="activity-{{ activity.id }}"
                            {% if activity.completed %}checked{% endif %}
                            onchange="toggleActivity('{{ activity.id }}', this.checked)">
                     <label for="activity-{{ activity.id }}">
                         {{ activity.name }}
+                        {% if activity.description %}
+                        <span class="activity-help" title="{{ activity.description }}">?</span>
+                        {% endif %}
                     </label>
+                    {% endif %}
                 </div>
+                {% if activity.repeatable %}
+                <div class="repeat-controls">
+                    <button class="repeat-btn repeat-btn-remove{% if activity.repeat_count|default(0) == 0 %} disabled{% endif %}"
+                            onclick="repeatActivity('{{ activity.id }}', 'remove')"
+                            {% if activity.repeat_count|default(0) == 0 %}disabled{% endif %}>-</button>
+                    <span class="repeat-count">{{ activity.repeat_count|default(0) }}</span>
+                    <button class="repeat-btn repeat-btn-add"
+                            onclick="repeatActivity('{{ activity.id }}', 'add')">+</button>
+                </div>
+                <div class="activity-bp">
+                    {% if activity.repeat_count|default(0) > 0 %}
+                    <span class="bp-value repeatable-bp">{{ activity.repeat_total_bp }} BP</span>
+                    {% else %}
+                    <span class="bp-value repeatable-bp">{{ activity.bp_value }} BP</span>
+                    {% endif %}
+                </div>
+                {% else %}
                 <div class="activity-bp">
                     <span class="bp-value">{{ activity.bp_value }} BP</span>
                 </div>
+                {% endif %}
+                <div class="activity-timestamp" {% if not activity.completed_at %}style="display: none;"{% endif %}></div>
             </div>
             {% endfor %}
         </div>
