@@ -100,6 +100,15 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
    docker-compose down
    ```
 
+   Common commands:
+   ```bash
+   docker-compose ps                  # Container status
+   docker-compose logs -f             # Live log output
+   docker-compose logs --tail 100     # Last 100 lines
+   docker-compose exec web bash       # Shell into the container
+   docker-compose up --build -d       # Rebuild after code changes
+   ```
+
 ## Configuration
 
 Create a `.env` file with the following variables:
@@ -153,33 +162,55 @@ python run.py
 
 #### Production with PM2
 
-PM2 manages the Gunicorn process with auto-restart and log rotation.
+PM2 manages the process with auto-restart and log rotation.
 
+**Option A — Gunicorn (recommended for production):**
 ```bash
-# Start
 pm2 start "gunicorn -w 4 -b 0.0.0.0:5000 web.app:app" --name bonus-points
+```
 
-# Save process list so PM2 restores it after reboot
+**Option B — Flask dev server (simpler, fine for low traffic):**
+```bash
+pm2 start run.py --name bonus-points --interpreter ./venv/bin/python
+```
+This runs Flask's built-in single-threaded server. It works for a personal dashboard but doesn't handle concurrent requests.
+
+**Persist across reboots:**
+```bash
 pm2 save
-
-# Enable PM2 startup on boot (run the command it outputs)
-pm2 startup
+pm2 startup   # Run the command it outputs
 ```
 
 Common commands:
 ```bash
-pm2 status              # Process status
-pm2 logs bonus-points   # Live log output
+pm2 status                          # Process list
+pm2 show bonus-points               # Detailed info
+pm2 logs bonus-points               # Live log output
+pm2 logs bonus-points --lines 100   # Last 100 lines
+pm2 monit                           # CPU/RAM monitor
 pm2 restart bonus-points
 pm2 stop bonus-points
-pm2 delete bonus-points # Remove from PM2
+pm2 delete bonus-points             # Remove from PM2
 ```
 
-To update after a `git pull`:
+**Deploying updates:**
 ```bash
-pip install -r requirements.txt  # If dependencies changed
+git pull origin main
+pip install -r requirements.txt   # If dependencies changed
 pm2 restart bonus-points
+pm2 logs bonus-points --lines 20  # Verify no errors
 ```
+
+**Deploying with database schema changes:**
+```bash
+pm2 stop bonus-points
+cp data/bonus_points.db data/backup_$(date +%Y%m%d_%H%M%S).db
+git pull origin main
+pip install -r requirements.txt
+pm2 start bonus-points
+pm2 logs bonus-points --lines 20
+```
+Schema migrations run automatically on startup via `init_db()`.
 
 #### Docker
 ```bash
@@ -187,10 +218,35 @@ docker-compose up --build -d
 ```
 
 #### Cloudflare Tunnel (Recommended for Public Access)
-No VPS or port forwarding needed:
+
+No VPS or port forwarding needed. Quick mode for development:
 ```bash
 cloudflared tunnel --url http://localhost:5000
 ```
+
+For a persistent tunnel, create a named tunnel and configure it as a systemd service:
+```bash
+cloudflared tunnel create my-tunnel
+```
+
+Config file (`/etc/cloudflared/config.yml`):
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /root/.cloudflared/<tunnel-id>.json
+
+ingress:
+  - hostname: your.domain.com
+    service: http://127.0.0.1:5000
+  - service: http_status:404
+```
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+> **Note:** The systemd service reads from `/etc/cloudflared/config.yml`, not `~/.cloudflared/config.yml`. Always edit the correct file.
 
 ## BP Balance System
 
@@ -318,20 +374,28 @@ Logs are stored in `logs/web.log` with:
 ## Troubleshooting
 
 ### Web dashboard not accessible
-- Ensure Flask is running (check console output)
-- Verify port 5000 is not in use
-- Check Discord OAuth2 redirect URI matches your configuration
-- For public access, use Cloudflare Tunnel
+1. Check if the app is running: `pm2 list`
+2. Check app logs: `pm2 logs bonus-points --lines 50`
+3. If using Cloudflare Tunnel, check tunnel status: `systemctl status cloudflared`
+4. Check tunnel logs: `journalctl -u cloudflared -n 50`
+5. Verify port 5000 is not in use by another process
 
 ### Database errors
 - Ensure `data/` directory exists and is writable
 - Check file permissions on `bonus_points.db`
-- For corruption, backup and delete database (will lose data)
+- Backup before destructive actions: `cp data/bonus_points.db data/backup_$(date +%Y%m%d_%H%M%S).db`
+- Schema auto-migrates on startup via `init_db()`
 
 ### OAuth2 Issues
-- **Error: "Redirect URI mismatch"**
-  - Ensure redirect URI in `.env` matches Discord Developer Portal exactly
-  - Include protocol (http:// or https://)
+- Ensure `DISCORD_REDIRECT_URI` in `.env` matches exactly what's registered in Discord Developer Portal
+- Include protocol (http:// or https://) — use https if behind Cloudflare Tunnel
+
+### After server reboot
+Both PM2 and cloudflared start automatically on boot if configured correctly. Verify:
+```bash
+pm2 list
+systemctl status cloudflared
+```
 
 ## Tips
 
