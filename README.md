@@ -1,35 +1,40 @@
-# 💎 Bonus Points Web Dashboard
+# Bonus Points Web Dashboard
 
 A web dashboard for tracking daily bonus points activities. Features VIP support, BP balance tracking, and an intuitive web interface for managing activities.
 
 > **Note:** This is the web-only version. The Discord bot has been removed.
 
-## ✨ Features
+## Features
 
 ### Core Features
-- **40+ Daily Activities** - Track solo and paired activities
-- **BP Balance System** - Persistent balance tracking across days
-- **VIP Support** - Double rewards for VIP users (toggleable)
-- **x2 Events** - Admin-toggleable double BP events
-- **Daily Reset** - Activities reset at 07:00 Moscow Time (04:00 UTC)
-- **Completion Timestamps** - Track when activities were completed (sorted by most recent)
+- **40+ Daily Activities** — Track solo and paired activities
+- **BP Balance System** — Persistent balance tracking across days
+- **VIP Support** — Double rewards for VIP users (toggleable)
+- **x2 Events** — Per-user double BP events
+- **Daily Reset** — Activities reset at 07:00 Moscow Time (04:00 UTC)
+- **Completion Timestamps** — Shows local time when each activity was completed
+- **Repeatable Activities** — Activities like "3 hours online" can be completed multiple times per day with +/- controls
+- **Activity Help Tooltips** — Hover `?` icon for activity descriptions
+- **Hidden Activities** — Hide irrelevant activities from your dashboard
+- **Activity Reset** — Clear all today's completions without changing BP balance
 
 ### Web Dashboard
-- **Discord OAuth2 Login** - Secure authentication with your Discord account
-- **Real-time Updates** - Dynamic activity management without page reloads
-- **Mobile Responsive** - Clean interface that works on all devices
-- **Activity Search** - Quickly find activities among 40+ options
-- **Progress Tracking** - Visual progress bars and statistics
-- **Tabbed Interface** - Separate views for active and completed activities
-- **One-Click VIP Toggle** - Easy VIP status management
-- **Balance Management** - Set balance directly from the dashboard
+- **Discord OAuth2 Login** — Secure authentication with your Discord account
+- **Real-time Updates** — Dynamic activity management without page reloads
+- **Mobile Responsive** — Clean interface that works on all devices
+- **Activity Search** — Quickly find activities among 40+ options
+- **Progress Tracking** — Visual progress bars and statistics
+- **Tabbed Interface** — Separate views for active and completed activities
+- **Settings Page** — VIP/event toggle, balance control, hidden activities, activity reset
 
-### Performance Optimizations
-- **Activity Caching** - O(1) lookups for fast operations
-- **Database Indexing** - Optimized queries for fast performance
-- **WAL Mode** - Better concurrent access for web server
+### Performance & Infrastructure
+- **Activity Caching** — O(1) lookups for fast operations
+- **Database Indexing** — Optimized queries for fast performance
+- **WAL Mode** — Better concurrent access for web server
+- **Docker Support** — `docker-compose up --build` for containerized deployment
+- **22 Tests** — Database and API endpoint test coverage
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -67,10 +72,44 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
    ```bash
    python run.py
    ```
-   
+
    The web dashboard will be available at http://localhost:5000
 
-## ⚙️ Configuration
+### Docker Setup
+
+1. **Configure the application**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your configuration
+   ```
+
+2. **Build and run**
+   ```bash
+   docker-compose up --build
+   ```
+
+   The container runs Gunicorn with 4 workers on port 5000. Data and logs are persisted via volume mounts (`./data` and `./logs`).
+
+   To run in the background:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+   To stop:
+   ```bash
+   docker-compose down
+   ```
+
+   Common commands:
+   ```bash
+   docker-compose ps                  # Container status
+   docker-compose logs -f             # Live log output
+   docker-compose logs --tail 100     # Last 100 lines
+   docker-compose exec web bash       # Shell into the container
+   docker-compose up --build -d       # Rebuild after code changes
+   ```
+
+## Configuration
 
 Create a `.env` file with the following variables:
 
@@ -98,39 +137,119 @@ WEB_DEBUG=False
 5. Add redirect URI: `http://localhost:5000/callback`
 6. Under OAuth2 > URL Generator, select scopes: `identify`, `guilds`
 
-## 🌐 Web Dashboard
+## Web Dashboard
 
 Access the web dashboard at `http://localhost:5000` (or your configured host).
 
 ### Features:
-- **Activity Management** - Check/uncheck activities with real-time updates
-- **Search & Filter** - Find activities quickly with search functionality
+- **Activity Management** — Check/uncheck activities with real-time updates
+- **Repeatable Activities** — +/- counter for activities that can be completed multiple times (e.g. "3 hours online")
+- **Completion Timestamps** — Shows local time (e.g. "в 14:30") for each completed activity
+- **Help Tooltips** — Hover the `?` icon on activities with descriptions
+- **Search & Filter** — Find activities by name, type (solo/pair), or time investment
 - **Two Tabs:**
-  - **Active Activities** - Uncompleted activities in category order
-  - **Completed Activities** - Recently completed activities (newest first)
-- **VIP Toggle** - Click the VIP badge to toggle status
-- **Balance Control** - Set your balance directly from the interface
-- **Statistics Cards** - View balance, progress, earned today, and remaining BP
+  - **Active Activities** — Uncompleted activities in definition order
+  - **Completed Activities** — Recently completed activities (newest first)
+- **Statistics Cards** — Balance, progress bar, earned today, and remaining BP
+- **Settings Page** — VIP/event toggle, balance control, hide activities, reset today's completions
 
-### Deployment Options:
+### Deployment Options
 
-#### Option 1: Local Development
+#### Local Development
+Activate the virtual environment first (see [Installation](#installation)), then:
 ```bash
 python run.py
 ```
 
-#### Option 2: Production with Gunicorn
+#### Production with PM2
+
+PM2 manages the process with auto-restart and log rotation.
+
+**Option A — Gunicorn (recommended for production):**
 ```bash
-gunicorn -w 4 -b 0.0.0.0:5000 web.app:app
+pm2 start "gunicorn -w 4 -b 0.0.0.0:5000 web.app:app" --name bonus-points
 ```
 
-#### Option 3: Cloudflare Tunnel (Recommended for Public Access)
-No VPS or port forwarding needed:
+**Option B — Flask dev server (simpler, fine for low traffic):**
+```bash
+pm2 start run.py --name bonus-points --interpreter ./venv/bin/python
+```
+This runs Flask's built-in single-threaded server. It works for a personal dashboard but doesn't handle concurrent requests.
+
+**Persist across reboots:**
+```bash
+pm2 save
+pm2 startup   # Run the command it outputs
+```
+
+Common commands:
+```bash
+pm2 status                          # Process list
+pm2 show bonus-points               # Detailed info
+pm2 logs bonus-points               # Live log output
+pm2 logs bonus-points --lines 100   # Last 100 lines
+pm2 monit                           # CPU/RAM monitor
+pm2 restart bonus-points
+pm2 stop bonus-points
+pm2 delete bonus-points             # Remove from PM2
+```
+
+**Deploying updates:**
+```bash
+git pull origin main
+pip install -r requirements.txt   # If dependencies changed
+pm2 restart bonus-points
+pm2 logs bonus-points --lines 20  # Verify no errors
+```
+
+**Deploying with database schema changes:**
+```bash
+pm2 stop bonus-points
+cp data/bonus_points.db data/backup_$(date +%Y%m%d_%H%M%S).db
+git pull origin main
+pip install -r requirements.txt
+pm2 start bonus-points
+pm2 logs bonus-points --lines 20
+```
+Schema migrations run automatically on startup via `init_db()`.
+
+#### Docker
+```bash
+docker-compose up --build -d
+```
+
+#### Cloudflare Tunnel (Recommended for Public Access)
+
+No VPS or port forwarding needed. Quick mode for development:
 ```bash
 cloudflared tunnel --url http://localhost:5000
 ```
 
-## 🎯 BP Balance System
+For a persistent tunnel, create a named tunnel and configure it as a systemd service:
+```bash
+cloudflared tunnel create my-tunnel
+```
+
+Config file (`/etc/cloudflared/config.yml`):
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /root/.cloudflared/<tunnel-id>.json
+
+ingress:
+  - hostname: your.domain.com
+    service: http://127.0.0.1:5000
+  - service: http_status:404
+```
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+> **Note:** The systemd service reads from `/etc/cloudflared/config.yml`, not `~/.cloudflared/config.yml`. Always edit the correct file.
+
+## BP Balance System
 
 The dashboard tracks your total BP balance persistently:
 
@@ -146,7 +265,7 @@ The dashboard tracks your total BP balance persistently:
 - **With Event**: 2x multiplier
 - **VIP + Event**: 4x multiplier
 
-## 🎉 Event System
+## Event System
 
 Administrators can enable x2 BP events that double all rewards. Events persist across restarts and are stored in the database.
 
@@ -156,60 +275,85 @@ POST /api/toggle_event
 Body: {"event_status": true}
 ```
 
-## 📊 Database Schema
+## Database Schema
 
 The application uses SQLite with the following tables:
 
-- **users** - Stores user VIP status and BP balance
-- **activities** - Tracks daily activity completions with timestamps
-- **settings** - Persistent configuration (event status, etc.)
+- **users** — VIP status (`vip_status`), BP balance (`bp_balance`), event flag (`event_active`)
+- **activities** — Daily activity completions with `completed_at` timestamp and `bp_earned` snapshot. UNIQUE on `(user_id, activity_id, date)`
+- **repeatable_completions** — Multiple completions per activity per day (e.g. "3 hours online"). Each row stores `bp_earned` and `completed_at`
+- **hidden_activities** — Per-user hidden activity preferences
+- **settings** — Key-value persistent configuration
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-bonus_points_web/
-├── web/                    # Web dashboard code
+bonus_points_bot/
+├── web/                        # Web dashboard code
 │   ├── __init__.py
-│   ├── app.py             # Flask application
-│   ├── auth.py            # Discord OAuth2
-│   ├── config.py          # Web configuration
-│   ├── database.py        # Database operations
-│   ├── activities.py      # Activity definitions
-│   ├── helpers.py         # Helper functions
-│   ├── templates/         # HTML templates
-│   │   ├── base.html     # Base template
-│   │   ├── dashboard.html # Main dashboard
-│   │   └── login.html    # Login page
-│   └── static/           # Static assets
+│   ├── app.py                 # Flask app factory, blueprint registration
+│   ├── auth.py                # Discord OAuth2 flow + require_auth decorator
+│   ├── config.py              # WebConfig from .env
+│   ├── database.py            # Database class (SQLite, thread-local, WAL)
+│   ├── activities.py          # Activity definitions + cached lookups
+│   ├── helpers.py             # Rate limiting, BP calc, data preparation
+│   ├── middleware.py          # Request logging, session refresh
+│   ├── validation.py          # Input validators, API response helpers
+│   ├── routes/
+│   │   ├── pages.py           # Page routes (login, dashboard, settings)
+│   │   └── api.py             # API routes (/api/* JSON endpoints)
+│   ├── templates/
+│   │   ├── base.html          # Base layout (navbar, footer)
+│   │   ├── dashboard.html     # Activity dashboard (tabs, cards, filters)
+│   │   ├── settings.html      # Settings page (VIP, balance, reset)
+│   │   └── login.html         # Login page
+│   └── static/
 │       ├── css/
-│       │   └── style.css # Dashboard styles
+│       │   └── style.css      # All styles, CSS variables, responsive
 │       └── js/
-│           └── dashboard.js # Dashboard logic
-├── data/                  # Runtime data (not in git)
-│   └── bonus_points.db   # SQLite database
-├── logs/                 # Log files (not in git)
-│   └── web.log          # Activity logs
-├── .env                  # Environment variables (not in git)
-├── .env.example         # Example environment file
-├── .gitignore          # Git ignore rules
-├── README.md           # This file
-├── requirements.txt    # Python dependencies
-└── run.py             # Main entry point
+│           ├── common.js      # Shared utilities (CSRF, loading, toasts)
+│           ├── dashboard.js   # Dashboard logic (toggle, filter, repeat)
+│           └── settings.js    # Settings logic (VIP, balance, reset)
+├── tests/
+│   ├── conftest.py            # Fixtures (temp DB, test client, auth)
+│   ├── test_database.py       # DB operation tests
+│   └── test_api.py            # API endpoint tests
+├── data/                      # Runtime data (gitignored)
+│   └── bonus_points.db
+├── logs/                      # Log files (gitignored)
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt           # Production dependencies (pinned)
+├── requirements-dev.txt       # Dev dependencies (pytest, ruff)
+├── pyproject.toml             # Ruff + pytest config
+├── run.py                     # Entry point
+└── CLAUDE.md                  # AI assistant instructions
 ```
 
-## 🔧 Development
+## Development
 
 ### Adding New Activities
 
-Edit `web/activities.py`:
+Edit `web/activities.py` — append to the `ACTIVITIES` list:
 
 ```python
 {
-    "id": "unique_id",
-    "name": "Activity Name",
-    "bp": 2,      # Base BP reward
-    "bp_vip": 4,  # VIP BP reward
+    "id": "unique_id",           # Alphanumeric + underscore, max 50 chars
+    "name": "Display Name",      # Shown on dashboard
+    "bp": 2,                     # Base BP reward
+    "type": "solo",              # "solo" or "pair"
+    "time": "low",               # "low", "medium", or "high"
+    "description": "Optional",   # Shown as ? tooltip (optional)
+    "repeatable": False,         # True for +/- counter UI (optional)
 }
+```
+
+### Running Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v    # 22 tests
+ruff check web/     # Linter
 ```
 
 ### Customizing the Dashboard
@@ -219,7 +363,7 @@ Edit `web/activities.py`:
 - **Behavior**: Edit `web/static/js/dashboard.js`
 - **Colors**: Modify CSS variables in `:root` selector
 
-## 📝 Logging
+## Logging
 
 Logs are stored in `logs/web.log` with:
 - Server startup and shutdown
@@ -228,25 +372,33 @@ Logs are stored in `logs/web.log` with:
 - Balance changes
 - Error messages with stack traces
 
-## 🛠 Troubleshooting
+## Troubleshooting
 
 ### Web dashboard not accessible
-- Ensure Flask is running (check console output)
-- Verify port 5000 is not in use
-- Check Discord OAuth2 redirect URI matches your configuration
-- For public access, use Cloudflare Tunnel
+1. Check if the app is running: `pm2 list`
+2. Check app logs: `pm2 logs bonus-points --lines 50`
+3. If using Cloudflare Tunnel, check tunnel status: `systemctl status cloudflared`
+4. Check tunnel logs: `journalctl -u cloudflared -n 50`
+5. Verify port 5000 is not in use by another process
 
 ### Database errors
 - Ensure `data/` directory exists and is writable
 - Check file permissions on `bonus_points.db`
-- For corruption, backup and delete database (will lose data)
+- Backup before destructive actions: `cp data/bonus_points.db data/backup_$(date +%Y%m%d_%H%M%S).db`
+- Schema auto-migrates on startup via `init_db()`
 
 ### OAuth2 Issues
-- **Error: "Redirect URI mismatch"**
-  - Ensure redirect URI in `.env` matches Discord Developer Portal exactly
-  - Include protocol (http:// or https://)
+- Ensure `DISCORD_REDIRECT_URI` in `.env` matches exactly what's registered in Discord Developer Portal
+- Include protocol (http:// or https://) — use https if behind Cloudflare Tunnel
 
-## 💡 Tips
+### After server reboot
+Both PM2 and cloudflared start automatically on boot if configured correctly. Verify:
+```bash
+pm2 list
+systemctl status cloudflared
+```
+
+## Tips
 
 - **Web Dashboard**: Best for managing multiple activities at once
 - **VIP Status**: Toggle via the VIP badge on dashboard
@@ -254,7 +406,7 @@ Logs are stored in `logs/web.log` with:
 - **Mobile**: Dashboard is fully responsive - use on any device
 - **Completion History**: Completed tab shows most recent activities first
 
-## 🔐 Security Notes
+## Security Notes
 
 - Never commit `.env` file to git
 - Keep `SECRET_KEY` random and secure (generate with `secrets.token_hex(32)`)
@@ -262,10 +414,6 @@ Logs are stored in `logs/web.log` with:
 - Use HTTPS in production (Cloudflare Tunnel provides this)
 - Regularly update dependencies for security patches
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-Made with ❤️ for tracking daily activities and staying motivated!
