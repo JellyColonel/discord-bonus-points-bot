@@ -103,6 +103,8 @@ Fields:
 - `description` (optional str) — shown as `?` tooltip on hover
 - `repeatable` (optional bool) — if `True`, uses +/- counter UI and separate DB table
 
-## Git Branch Naming
+## Git Workflow
 
-Use full prefixes: `feature/`, `bugfix/`, `docs/`, `cleanup/` (never abbreviated like `feat/` or `fix/`).
+- Never commit directly to main — always create a branch with the appropriate prefix
+- Always `git pull origin main` before starting a new feature branch and after merging a PR
+- Use full branch prefixes: `feature/`, `bugfix/`, `docs/`, `cleanup/` (never abbreviated like `feat/` or `fix/`)
