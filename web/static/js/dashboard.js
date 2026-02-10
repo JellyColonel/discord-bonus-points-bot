@@ -11,6 +11,36 @@ const FILTER_STORAGE_KEY = 'bp_dashboard_filters';
 let currentTab = 'active';
 
 // =================================================================
+// Timestamp Functions
+// =================================================================
+
+/**
+ * Format a UTC ISO timestamp to local "в HH:MM" string.
+ * @param {string} utcTimestamp - UTC ISO timestamp
+ * @returns {string} Formatted time string or empty string
+ */
+function formatCompletionTime(utcTimestamp) {
+    if (!utcTimestamp) return '';
+    const date = new Date(utcTimestamp);
+    if (isNaN(date.getTime())) return '';
+    return `\u0432 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/**
+ * Initialize timestamps on all activity cards from data attributes.
+ */
+function initializeTimestamps() {
+    document.querySelectorAll('.activity-card').forEach(card => {
+        const ts = card.getAttribute('data-completed-at');
+        const el = card.querySelector('.activity-timestamp');
+        if (ts && el) {
+            el.textContent = formatCompletionTime(ts);
+            el.style.display = '';
+        }
+    });
+}
+
+// =================================================================
 // Utility Functions
 // =================================================================
 
@@ -121,9 +151,13 @@ function applyFilters() {
         const cardName = card.getAttribute('data-name') || '';
         const cardId = card.getAttribute('data-activity-id').toLowerCase();
         const isCompleted = card.getAttribute('data-completed') === 'true';
+        const isRepeatable = card.getAttribute('data-repeatable') === 'true';
 
         // Count for tabs (before other filters)
-        if (isCompleted) {
+        // Repeatable cards always count as active
+        if (isRepeatable) {
+            activeCount++;
+        } else if (isCompleted) {
             completedCount++;
         } else {
             activeCount++;
@@ -132,7 +166,12 @@ function applyFilters() {
         let visible = true;
 
         // Filter by tab (active vs completed)
-        if (currentTab === 'active' && isCompleted) {
+        // Repeatable cards always show in active tab, never in completed
+        if (isRepeatable) {
+            if (currentTab === 'completed') {
+                visible = false;
+            }
+        } else if (currentTab === 'active' && isCompleted) {
             visible = false;
         } else if (currentTab === 'completed' && !isCompleted) {
             visible = false;
@@ -395,6 +434,20 @@ async function toggleActivity(activityId, completed) {
                 if (bpElement && data.bp_change) {
                     bpElement.textContent = `${Math.abs(data.bp_change)} BP`;
                 }
+
+                // Update timestamp
+                const tsEl = card.querySelector('.activity-timestamp');
+                if (tsEl) {
+                    if (completed && data.completed_at) {
+                        card.setAttribute('data-completed-at', data.completed_at);
+                        tsEl.textContent = formatCompletionTime(data.completed_at);
+                        tsEl.style.display = '';
+                    } else {
+                        card.setAttribute('data-completed-at', '');
+                        tsEl.textContent = '';
+                        tsEl.style.display = 'none';
+                    }
+                }
             }
 
             // Update balance display
@@ -486,6 +539,9 @@ async function refreshStats() {
 function initializeClickableCards() {
     const cards = document.querySelectorAll('.activity-card');
     cards.forEach(card => {
+        // Skip repeatable cards — they use +/- buttons, not click-to-toggle
+        if (card.getAttribute('data-repeatable') === 'true') return;
+
         card.addEventListener('click', function(e) {
             // Don't trigger if clicking directly on checkbox or label
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
@@ -500,6 +556,101 @@ function initializeClickableCards() {
             }
         });
     });
+}
+
+// =================================================================
+// Repeatable Activity Functions
+// =================================================================
+
+/**
+ * Add or remove a repeatable activity completion via API.
+ * @param {string} activityId - The activity identifier
+ * @param {string} action - "add" or "remove"
+ */
+async function repeatActivity(activityId, action) {
+    if (isLoading) return;
+
+    showLoading();
+
+    try {
+        const response = await fetch('/api/repeatable_activity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                activity_id: activityId,
+                action: action
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const card = document.querySelector(`[data-activity-id="${activityId}"]`);
+            if (card) {
+                const count = data.count;
+                card.setAttribute('data-repeat-count', count);
+
+                // Update counter display
+                const countEl = card.querySelector('.repeat-count');
+                if (countEl) countEl.textContent = count;
+
+                // Update BP display
+                const bpEl = card.querySelector('.bp-value');
+                if (bpEl) {
+                    if (count > 0) {
+                        bpEl.textContent = `${data.total_bp} BP`;
+                    } else {
+                        bpEl.textContent = `${card.getAttribute('data-bp')} BP`;
+                    }
+                }
+
+                // Update remove button state
+                const removeBtn = card.querySelector('.repeat-btn-remove');
+                if (removeBtn) {
+                    if (count === 0) {
+                        removeBtn.disabled = true;
+                        removeBtn.classList.add('disabled');
+                    } else {
+                        removeBtn.disabled = false;
+                        removeBtn.classList.remove('disabled');
+                    }
+                }
+
+                // Update timestamp
+                const tsEl = card.querySelector('.activity-timestamp');
+                if (tsEl) {
+                    if (data.completed_at) {
+                        card.setAttribute('data-completed-at', data.completed_at);
+                        tsEl.textContent = formatCompletionTime(data.completed_at);
+                        tsEl.style.display = '';
+                    } else if (count === 0) {
+                        card.setAttribute('data-completed-at', '');
+                        tsEl.textContent = '';
+                        tsEl.style.display = 'none';
+                    }
+                }
+            }
+
+            // Update balance display
+            document.getElementById('balance-display').textContent = data.new_balance;
+
+            // Refresh stats
+            await refreshStats();
+
+            const bpText = data.bp_change > 0 ? `+${data.bp_change}` : `${data.bp_change}`;
+            showToast(`${action === 'add' ? 'Выполнение добавлено' : 'Выполнение удалено'} (${bpText} BP)`, 'success');
+        } else {
+            showToast(data.error || 'Не удалось обновить активность', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating repeatable activity:', error);
+        showToast('Не удалось обновить активность', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // =================================================================
@@ -518,4 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Make cards clickable
     initializeClickableCards();
+
+    // Initialize completion timestamps
+    initializeTimestamps();
 });

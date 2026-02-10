@@ -93,3 +93,76 @@ def test_vip_and_event_defaults(db):
     assert db.get_user_vip_status(user_id) is False
     assert db.get_user_event_status(user_id) is False
     assert db.get_user_bp_balance(user_id) == 0
+
+
+def test_completed_activities_with_bp_includes_timestamp(db):
+    """completed_at should be returned in the third tuple element."""
+    user_id = 7001
+    date = "2025-01-15"
+
+    db.set_activity_status(user_id, "fishing", date, True, bp_earned=4)
+
+    results = db.get_user_completed_activities_with_bp(user_id, date)
+    assert len(results) == 1
+    activity_id, bp_earned, completed_at = results[0]
+    assert activity_id == "fishing"
+    assert bp_earned == 4
+    assert completed_at is not None
+    assert "T" in completed_at  # ISO format
+
+
+def test_repeatable_completions_add_remove(db):
+    """Add and remove repeatable completions."""
+    user_id = 8001
+    date = "2025-01-15"
+
+    # Add 3 completions
+    count1 = db.add_repeatable_completion(user_id, "online_3h", date, 2)
+    assert count1 == 1
+
+    count2 = db.add_repeatable_completion(user_id, "online_3h", date, 4)
+    assert count2 == 2
+
+    count3 = db.add_repeatable_completion(user_id, "online_3h", date, 2)
+    assert count3 == 3
+
+    # Check grouped data
+    data = db.get_repeatable_completions(user_id, date)
+    assert "online_3h" in data
+    assert len(data["online_3h"]) == 3
+    total_bp = sum(bp for bp, _ in data["online_3h"])
+    assert total_bp == 8
+
+    # Remove most recent
+    new_count, removed_bp = db.remove_repeatable_completion(user_id, "online_3h", date)
+    assert new_count == 2
+    assert removed_bp == 2  # Last added was 2 BP
+
+    # Remove from empty activity
+    empty_count, empty_bp = db.remove_repeatable_completion(user_id, "nonexistent", date)
+    assert empty_count == 0
+    assert empty_bp == 0
+
+
+def test_reset_today_activities(db):
+    """Reset should clear both regular and repeatable completions."""
+    user_id = 9001
+    date = "2025-01-15"
+
+    # Add regular completions
+    db.set_activity_status(user_id, "fishing", date, True, bp_earned=4)
+    db.set_activity_status(user_id, "metro", date, True, bp_earned=2)
+
+    # Add repeatable completions
+    db.add_repeatable_completion(user_id, "online_3h", date, 2)
+    db.add_repeatable_completion(user_id, "online_3h", date, 2)
+
+    # Reset
+    regular_deleted, repeatable_deleted = db.reset_today_activities(user_id, date)
+    assert regular_deleted == 2
+    assert repeatable_deleted == 2
+
+    # Verify empty
+    assert db.get_activity_status(user_id, "fishing", date) is False
+    data = db.get_repeatable_completions(user_id, date)
+    assert len(data) == 0

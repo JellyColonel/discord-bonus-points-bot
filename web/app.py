@@ -4,9 +4,9 @@ import logging
 from typing import Optional
 
 from flask import Flask
-from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 
+from flask_session import Session
 from web.config import WebConfig
 from web.database import Database
 from web.middleware import register_middleware

@@ -81,7 +81,12 @@
                  data-activity-id="{{ activity.id }}"
                  data-name="{{ activity.name | lower }}">
                 <div class="activity-item-info">
-                    <span class="activity-item-name">{{ activity.name }}</span>
+                    <span class="activity-item-name">
+                        {{ activity.name }}
+                        {% if activity.description %}
+                        <span class="activity-help" title="{{ activity.description }}">?</span>
+                        {% endif %}
+                    </span>
                     <span class="activity-item-bp">{{ activity.bp_value }} BP</span>
                 </div>
                 <button class="btn btn-sm {% if activity.hidden %}btn-show{% else %}btn-hide{% endif %}"
@@ -94,6 +99,20 @@
 
         <div class="settings-empty-state" id="settings-empty-state" style="display: none;">
             <p>Активности не найдены</p>
+        </div>
+    </div>
+
+    <!-- Reset Activities Section -->
+    <div class="settings-section">
+        <h3>🔄 Сброс активностей</h3>
+        <p class="section-description">Сбросить все выполненные сегодня активности. Баланс BP не изменится.</p>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <span class="setting-label">Сброс за сегодня</span>
+                <span class="setting-description">Все отметки о выполнении будут удалены, баланс останется прежним</span>
+            </div>
+            <button onclick="resetTodayActivities()" class="btn btn-danger btn-sm">Сбросить</button>
         </div>
     </div>
 

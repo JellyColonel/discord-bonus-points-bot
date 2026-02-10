@@ -1,10 +1,11 @@
 """API routes — JSON endpoints."""
 
 import logging
+from datetime import datetime, timezone
 
 from flask import Blueprint, Response, request, session
 
-from web.activities import get_activity_by_id, get_all_activities
+from web.activities import get_activity_by_id, get_all_activities, is_repeatable
 from web.auth import require_auth
 from web.database import get_today_date
 from web.helpers import (
@@ -75,7 +76,11 @@ def toggle_activity() -> Response | tuple[Response, int]:
             new_balance = db.add_user_bp(user_id, bp)
             logger.info(f"User {user_id} completed {activity_id}: +{bp} BP")
 
-            return api_success(new_balance=new_balance, bp_change=bp)
+            return api_success(
+                new_balance=new_balance,
+                bp_change=bp,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+            )
         else:
             stored_bp = db.get_activity_bp_earned(user_id, activity_id, today)
 
@@ -94,6 +99,95 @@ def toggle_activity() -> Response | tuple[Response, int]:
             return api_success(new_balance=new_balance, bp_change=-stored_bp)
     except Exception:
         logger.exception(f"Error toggling activity {activity_id} for user {user_id}")
+        return api_error("Failed to update activity", 500)
+
+
+# ============================================================================
+# Repeatable Activities
+# ============================================================================
+
+
+@api_bp.route("/repeatable_activity", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=60, window_seconds=60)
+def repeatable_activity() -> Response | tuple[Response, int]:
+    """Add or remove a repeatable activity completion."""
+    db = _get_db()
+    user_id = int(session["user"]["id"])
+    data = request.json
+
+    if not data:
+        return api_error("Missing request body")
+
+    is_valid, error_msg = validate_activity_id(data.get("activity_id"))
+    if not is_valid:
+        return api_error(error_msg)
+    activity_id = data.get("activity_id")
+
+    action = data.get("action")
+    if action not in ("add", "remove"):
+        return api_error("action must be 'add' or 'remove'")
+
+    activity = get_activity_by_id(activity_id)
+    if not activity:
+        return api_error("Activity not found", 404)
+
+    if not is_repeatable(activity_id):
+        return api_error("Activity is not repeatable")
+
+    try:
+        today = get_today_date()
+
+        if action == "add":
+            vip_status = db.get_user_vip_status(user_id)
+            event_active = is_event_active(db, user_id)
+            bp = calculate_bp(activity, vip_status, event_active)
+
+            count = db.add_repeatable_completion(user_id, activity_id, today, bp)
+            new_balance = db.add_user_bp(user_id, bp)
+
+            # Calculate total BP for this repeatable activity today
+            completions = db.get_repeatable_completions(user_id, today)
+            activity_completions = completions.get(activity_id, [])
+            total_bp = sum(bp_earned for bp_earned, _ in activity_completions)
+
+            logger.info(f"User {user_id} added repeatable {activity_id}: +{bp} BP (count={count})")
+
+            return api_success(
+                new_balance=new_balance,
+                bp_change=bp,
+                count=count,
+                total_bp=total_bp,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+            )
+        else:
+            count, removed_bp = db.remove_repeatable_completion(user_id, activity_id, today)
+
+            if removed_bp == 0:
+                return api_error("No completions to remove")
+
+            new_balance = db.subtract_user_bp(user_id, removed_bp)
+
+            # Calculate total BP for this repeatable activity today
+            completions = db.get_repeatable_completions(user_id, today)
+            activity_completions = completions.get(activity_id, [])
+            total_bp = sum(bp_earned for bp_earned, _ in activity_completions)
+            last_completed_at = activity_completions[0][1] if activity_completions else None
+
+            logger.info(
+                f"User {user_id} removed repeatable {activity_id}: "
+                f"-{removed_bp} BP (count={count})"
+            )
+
+            return api_success(
+                new_balance=new_balance,
+                bp_change=-removed_bp,
+                count=count,
+                total_bp=total_bp,
+                completed_at=last_completed_at,
+            )
+    except Exception:
+        logger.exception(f"Error with repeatable activity {activity_id} for user {user_id}")
         return api_error("Failed to update activity", 500)
 
 
@@ -372,6 +466,9 @@ def user_stats() -> Response | tuple[Response, int]:
 
         hidden_activity_ids = get_hidden_activity_ids(db, user_id)
 
+        # Get repeatable completions
+        repeatable_data = db.get_repeatable_completions(user_id, today)
+
         total_earned = 0
         total_remaining = 0
         visible_total = 0
@@ -381,6 +478,12 @@ def user_stats() -> Response | tuple[Response, int]:
             activity_id = activity["id"]
 
             if activity_id in hidden_activity_ids:
+                continue
+
+            if activity.get("repeatable"):
+                # Repeatable: add earned BP but don't count toward progress
+                completions = repeatable_data.get(activity_id, [])
+                total_earned += sum(bp for bp, _ in completions)
                 continue
 
             visible_total += 1
@@ -405,3 +508,36 @@ def user_stats() -> Response | tuple[Response, int]:
     except Exception:
         logger.exception(f"Error fetching user stats for user {user_id}")
         return api_error("Failed to fetch user stats", 500)
+
+
+# ============================================================================
+# Reset Activities
+# ============================================================================
+
+
+@api_bp.route("/reset_today_activities", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=5, window_seconds=60)
+def reset_today_activities() -> Response | tuple[Response, int]:
+    """Reset all of today's activity completions without changing BP balance."""
+    db = _get_db()
+    user_id = int(session["user"]["id"])
+
+    try:
+        today = get_today_date()
+        regular_deleted, repeatable_deleted = db.reset_today_activities(user_id, today)
+        total_deleted = regular_deleted + repeatable_deleted
+        balance = db.get_user_bp_balance(user_id)
+
+        logger.info(
+            f"User {user_id} reset today's activities: "
+            f"{regular_deleted} regular, {repeatable_deleted} repeatable"
+        )
+
+        return api_success(
+            deleted_count=total_deleted,
+            balance=balance,
+        )
+    except Exception:
+        logger.exception(f"Error resetting activities for user {user_id}")
+        return api_error("Failed to reset activities", 500)

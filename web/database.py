@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
-from typing import Generator, List, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +206,19 @@ class Database:
             """)
             logger.debug("Hidden activities table created/verified")
 
+            # Repeatable completions table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS repeatable_completions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    activity_id TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    bp_earned INTEGER NOT NULL,
+                    completed_at TEXT NOT NULL
+                )
+            """)
+            logger.debug("Repeatable completions table created/verified")
+
             # Settings table for persistent config
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
@@ -247,6 +260,17 @@ class Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_hidden_activities_user
                 ON hidden_activities(user_id)
+            """)
+
+            # Indexes for repeatable completions
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_repeatable_user_activity_date
+                ON repeatable_completions(user_id, activity_id, date)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_repeatable_user_date
+                ON repeatable_completions(user_id, date)
             """)
 
             logger.debug("Activity indexes created/verified")
@@ -388,7 +412,8 @@ class Database:
             result = cursor.fetchone()
             completed = bool(result[0]) if result else False
             logger.debug(
-                f"Activity status for user {user_id}, activity {activity_id}, date {date}: {completed}"
+                f"Activity status for user {user_id}, "
+                f"activity {activity_id}, date {date}: {completed}"
             )
             return completed
 
@@ -409,10 +434,11 @@ class Database:
             completed: Whether activity is completed
             bp_earned: BP amount earned (stored when completing, used when uncompleting)
         """
-        logger.info(
-            f"User {user_id} {'completed' if completed else 'uncompleted'} activity {activity_id} on {date}"
-            + (f" (bp_earned={bp_earned})" if bp_earned is not None else "")
-        )
+        action = "completed" if completed else "uncompleted"
+        msg = f"User {user_id} {action} activity {activity_id} on {date}"
+        if bp_earned is not None:
+            msg += f" (bp_earned={bp_earned})"
+        logger.info(msg)
         with self.get_cursor() as cursor:
             # Set completed_at to current UTC time when completing, NULL when uncompleting
             completed_at = datetime.now(timezone.utc).isoformat() if completed else None
@@ -422,7 +448,8 @@ class Database:
 
             cursor.execute(
                 """
-                INSERT INTO activities (user_id, activity_id, date, completed, completed_at, bp_earned)
+                INSERT INTO activities
+                    (user_id, activity_id, date, completed, completed_at, bp_earned)
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, activity_id, date)
                 DO UPDATE SET completed = ?, completed_at = ?, bp_earned = ?
@@ -486,16 +513,16 @@ class Database:
 
     def get_user_completed_activities_with_bp(
         self, user_id: int, date: str
-    ) -> List[Tuple[str, Optional[int]]]:
-        """Get list of completed activities with their bp_earned values.
+    ) -> List[Tuple[str, Optional[int], Optional[str]]]:
+        """Get list of completed activities with their bp_earned values and timestamps.
 
-        Returns list of tuples: (activity_id, bp_earned)
+        Returns list of tuples: (activity_id, bp_earned, completed_at)
         Results are sorted by completion time (most recent first).
         """
         with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
-                SELECT activity_id, bp_earned FROM activities
+                SELECT activity_id, bp_earned, completed_at FROM activities
                 WHERE user_id = ? AND date = ? AND completed = 1
                 ORDER BY completed_at DESC NULLS LAST
             """,
@@ -505,7 +532,140 @@ class Database:
             logger.debug(
                 f"User {user_id} completed {len(results)} activities with BP on {date}"
             )
-            return [(row[0], row[1]) for row in results]
+            return [(row[0], row[1], row[2]) for row in results]
+
+    # =========================================================================
+    # Repeatable Activity methods
+    # =========================================================================
+
+    def add_repeatable_completion(
+        self, user_id: int, activity_id: str, date: str, bp_earned: int
+    ) -> int:
+        """Add a repeatable activity completion.
+
+        Returns the new count of completions for this activity today.
+        """
+        completed_at = datetime.now(timezone.utc).isoformat()
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO repeatable_completions
+                    (user_id, activity_id, date, bp_earned, completed_at)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (str(user_id), activity_id, date, bp_earned, completed_at),
+            )
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM repeatable_completions
+                WHERE user_id = ? AND activity_id = ? AND date = ?
+            """,
+                (str(user_id), activity_id, date),
+            )
+            count = cursor.fetchone()[0]
+        logger.info(
+            f"User {user_id} added repeatable completion for {activity_id} on {date} "
+            f"(+{bp_earned} BP, count={count})"
+        )
+        return count
+
+    def remove_repeatable_completion(
+        self, user_id: int, activity_id: str, date: str
+    ) -> Tuple[int, int]:
+        """Remove the most recent repeatable completion for an activity.
+
+        Returns tuple of (new_count, removed_bp_earned).
+        """
+        with self.get_cursor() as cursor:
+            # Find the most recent completion (by auto-increment id for determinism)
+            cursor.execute(
+                """
+                SELECT id, bp_earned FROM repeatable_completions
+                WHERE user_id = ? AND activity_id = ? AND date = ?
+                ORDER BY id DESC
+                LIMIT 1
+            """,
+                (str(user_id), activity_id, date),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return 0, 0
+
+            completion_id, removed_bp = row
+
+            # Delete it
+            cursor.execute(
+                "DELETE FROM repeatable_completions WHERE id = ?",
+                (completion_id,),
+            )
+
+            # Get new count
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM repeatable_completions
+                WHERE user_id = ? AND activity_id = ? AND date = ?
+            """,
+                (str(user_id), activity_id, date),
+            )
+            new_count = cursor.fetchone()[0]
+
+        logger.info(
+            f"User {user_id} removed repeatable completion for {activity_id} on {date} "
+            f"(-{removed_bp} BP, count={new_count})"
+        )
+        return new_count, removed_bp
+
+    def get_repeatable_completions(
+        self, user_id: int, date: str
+    ) -> Dict[str, List[Tuple[int, str]]]:
+        """Get all repeatable completions for a user on a date.
+
+        Returns dict: {activity_id: [(bp_earned, completed_at), ...]}
+        sorted by completed_at DESC within each activity.
+        """
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                """
+                SELECT activity_id, bp_earned, completed_at FROM repeatable_completions
+                WHERE user_id = ? AND date = ?
+                ORDER BY completed_at DESC
+            """,
+                (str(user_id), date),
+            )
+            results = cursor.fetchall()
+
+        grouped: Dict[str, List[Tuple[int, str]]] = {}
+        for activity_id, bp_earned, completed_at in results:
+            if activity_id not in grouped:
+                grouped[activity_id] = []
+            grouped[activity_id].append((bp_earned, completed_at))
+
+        logger.debug(
+            f"User {user_id} has repeatable completions on {date}: "
+            + ", ".join(f"{k}={len(v)}" for k, v in grouped.items())
+        )
+        return grouped
+
+    def delete_repeatable_completions_for_date(
+        self, user_id: int, date: str
+    ) -> int:
+        """Delete all repeatable completions for a user on a date.
+
+        Returns the number of deleted rows.
+        """
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM repeatable_completions
+                WHERE user_id = ? AND date = ?
+            """,
+                (str(user_id), date),
+            )
+            deleted = cursor.rowcount
+        logger.info(
+            f"Deleted {deleted} repeatable completions for user {user_id} on {date}"
+        )
+        return deleted
 
     # =========================================================================
     # Hidden Activities methods
@@ -601,6 +761,45 @@ class Database:
                 (key, str(value), str(value)),
             )
 
+    # =========================================================================
+    # Reset methods
+    # =========================================================================
+
+    def reset_today_activities(
+        self, user_id: int, date: str
+    ) -> Tuple[int, int]:
+        """Reset all activity completions for a user on a date.
+
+        Deletes from both activities and repeatable_completions tables.
+        Does NOT modify BP balance.
+
+        Returns tuple of (regular_deleted, repeatable_deleted).
+        """
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM activities
+                WHERE user_id = ? AND date = ?
+            """,
+                (str(user_id), date),
+            )
+            regular_deleted = cursor.rowcount
+
+            cursor.execute(
+                """
+                DELETE FROM repeatable_completions
+                WHERE user_id = ? AND date = ?
+            """,
+                (str(user_id), date),
+            )
+            repeatable_deleted = cursor.rowcount
+
+        logger.info(
+            f"Reset activities for user {user_id} on {date}: "
+            f"{regular_deleted} regular, {repeatable_deleted} repeatable"
+        )
+        return regular_deleted, repeatable_deleted
+
     def optimize_database(self) -> None:
         """Run VACUUM and ANALYZE to optimize database performance.
 
@@ -636,13 +835,15 @@ def get_today_date() -> str:
         yesterday = now - timedelta(days=1)
         date = yesterday.strftime("%Y-%m-%d")
         logger.debug(
-            f"Before reset time ({now.time()} < 04:00 UTC / 07:00 MSK) - using activity date: {date}"
+            f"Before reset time ({now.time()} < 04:00 UTC) "
+            f"- using activity date: {date}"
         )
     else:
         # In current activity day
         date = now.strftime("%Y-%m-%d")
         logger.debug(
-            f"After reset time ({now.time()} >= 04:00 UTC / 07:00 MSK) - using activity date: {date}"
+            f"After reset time ({now.time()} >= 04:00 UTC) "
+            f"- using activity date: {date}"
         )
 
     return date
