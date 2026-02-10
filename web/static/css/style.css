@@ -9,6 +9,7 @@
 }
 
 :root {
+    /* Colors */
     --primary-color: #5865F2;
     --secondary-color: #3BA55D;
     --danger-color: #ED4245;
@@ -23,6 +24,13 @@
     --vip-color: #E5E4E2;
     --vip-platinum: #E5E4E2;
     --vip-platinum-dark: #C0C0C0;
+
+    /* Shadows */
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-primary: 0 4px 12px rgba(88, 101, 242, 0.4);
+    --shadow-success: 0 4px 12px rgba(59, 165, 93, 0.2);
 }
 
 body {
@@ -105,7 +113,7 @@ body {
 .btn-primary:hover {
     background: #4752C4;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+    box-shadow: var(--shadow-primary);
 }
 
 .btn-secondary {
@@ -203,7 +211,7 @@ body {
     border-radius: 12px;
     padding: 24px 20px 20px 20px;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -314,6 +322,7 @@ body {
 
 .balance-control-inline input[type=number] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .balance-control-inline .btn {
@@ -358,7 +367,15 @@ body {
 .badge-event {
     background: linear-gradient(135deg, #FF6B6B, #FF8E53);
     color: white;
-    animation: pulse 2s infinite;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.badge-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+    border-color: #FF6B6B;
 }
 
 @keyframes pulse {
@@ -715,7 +732,7 @@ body {
 
 .activity-card.completed:hover {
     border-color: var(--success);
-    box-shadow: 0 4px 12px rgba(59, 165, 93, 0.2);
+    box-shadow: var(--shadow-success);
 }
 
 .activity-header {
@@ -849,53 +866,53 @@ body {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .stats-header {
         grid-template-columns: 1fr;
     }
-    
+
     .search-box {
         padding: 10px 14px;
     }
-    
+
     .search-box input {
         font-size: 15px;
     }
-    
+
     .search-icon {
         font-size: 16px;
         margin-right: 10px;
     }
-    
+
     .search-results-count {
         font-size: 13px;
     }
-    
+
     .status-and-controls {
         flex-direction: column;
         align-items: stretch;
         gap: 16px;
     }
-    
+
     .status-badges-inline {
         width: 100%;
     }
-    
+
     .balance-control-inline {
         width: 100%;
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
     }
-    
+
     .balance-control-inline input {
         width: 100%;
     }
-    
+
     .balance-control-inline .btn {
         width: 100%;
     }
-    
+
     .control-group {
         min-width: 100%;
         flex-direction: column;
@@ -905,7 +922,7 @@ body {
         padding: 16px;
         border-radius: 8px;
     }
-    
+
     .control-group label {
         min-width: unset;
         font-size: 13px;
@@ -914,42 +931,42 @@ body {
         color: var(--text-secondary);
         margin-bottom: 0;
     }
-    
+
     .control-group input {
         width: 100%;
     }
-    
+
     .control-group .btn {
         width: 100%;
         justify-content: center;
         padding: 12px 24px;
         font-size: 15px;
     }
-    
+
     .vip-control-card {
         flex-direction: column;
         gap: 16px;
         padding: 20px;
     }
-    
+
     .vip-icon {
         font-size: 40px;
     }
-    
+
     .btn-vip {
         width: 100%;
         padding: 12px 24px;
         font-size: 15px;
     }
-    
+
     .activity-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .login-card {
         padding: 32px 24px;
     }
-    
+
     .activity-tabs {
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -958,18 +975,18 @@ body {
         -ms-overflow-style: none;
         gap: 8px;
     }
-    
+
     .activity-tabs::-webkit-scrollbar {
         display: none;
     }
-    
+
     .tab-btn {
         flex-shrink: 0;
         padding: 8px 12px;
         font-size: 13px;
         white-space: nowrap;
     }
-    
+
     .tab-count {
         font-size: 11px;
         padding: 2px 6px;
@@ -982,32 +999,32 @@ body {
     .container {
         padding: 12px;
     }
-    
+
     .controls {
         padding: 16px;
         gap: 12px;
     }
-    
+
     .control-group {
         padding: 12px;
     }
-    
+
     .tab-btn {
         padding: 6px 10px;
         font-size: 12px;
         gap: 6px;
     }
-    
+
     .tab-count {
         font-size: 10px;
         padding: 1px 5px;
         min-width: 18px;
     }
-    
+
     .control-group label {
         font-size: 12px;
     }
-    
+
     .control-group input,
     .control-group .btn {
         font-size: 14px;

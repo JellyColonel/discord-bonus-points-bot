@@ -1,14 +1,20 @@
 """Discord OAuth2 authentication."""
 
+from functools import wraps
+from typing import Any, Callable, Dict, TypeVar
+
 import requests
-from flask import redirect, session, url_for
+from flask import Response, redirect, session, url_for
 
 from web.config import WebConfig
 
+# Type variable for preserving function signatures in decorators
+F = TypeVar("F", bound=Callable[..., Any])
 
-def get_oauth_url():
+
+def get_oauth_url() -> str:
     """Generate Discord OAuth2 authorization URL."""
-    params = {
+    params: Dict[str, Any] = {
         "client_id": WebConfig.DISCORD_CLIENT_ID,
         "redirect_uri": WebConfig.DISCORD_REDIRECT_URI,
         "response_type": "code",
@@ -20,9 +26,9 @@ def get_oauth_url():
     return f"{url}?{param_string}"
 
 
-def exchange_code(code):
+def exchange_code(code: str) -> Dict[str, Any]:
     """Exchange authorization code for access token."""
-    data = {
+    data: Dict[str, Any] = {
         "client_id": WebConfig.DISCORD_CLIENT_ID,
         "client_secret": WebConfig.DISCORD_CLIENT_SECRET,
         "grant_type": "authorization_code",
@@ -30,30 +36,29 @@ def exchange_code(code):
         "redirect_uri": WebConfig.DISCORD_REDIRECT_URI,
     }
 
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    headers: Dict[str, str] = {"Content-Type": "application/x-www-form-urlencoded"}
 
     response = requests.post(WebConfig.DISCORD_TOKEN_URL, data=data, headers=headers)
     response.raise_for_status()
     return response.json()
 
 
-def get_user_info(access_token):
+def get_user_info(access_token: str) -> Dict[str, Any]:
     """Get user information from Discord."""
-    headers = {"Authorization": f"Bearer {access_token}"}
+    headers: Dict[str, str] = {"Authorization": f"Bearer {access_token}"}
 
     response = requests.get(WebConfig.DISCORD_USER_URL, headers=headers)
     response.raise_for_status()
     return response.json()
 
 
-def require_auth(f):
+def require_auth(f: F) -> F:
     """Decorator to require authentication for routes."""
-    from functools import wraps
 
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated_function(*args: Any, **kwargs: Any) -> Response:
         if "user" not in session:
             return redirect(url_for("login"))
         return f(*args, **kwargs)
 
-    return decorated_function
+    return decorated_function  # type: ignore[return-value]

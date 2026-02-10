@@ -1,8 +1,12 @@
-# bonus_points_bot/bot/data/activities.py
 """
 Activity definitions and lookup functions.
 OPTIMIZED: Caching and O(1) lookups for better performance.
 """
+
+from typing import Any, Dict, List, Optional
+
+# Type alias for activity dictionary
+Activity = Dict[str, Any]
 
 ACTIVITIES = {
     "📍 Одиночные": [
@@ -199,18 +203,6 @@ ACTIVITIES = {
             "bp_vip": 20,
         },
         {
-            "id": "mafia_contraband",
-            "name": "💼 Сдать 5 контрабанды (Только для мафий)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "merryweather_airdrop",
-            "name": "🪂 Принять участие в двух Airdrop",
-            "bp": 4,
-            "bp_vip": 8,
-        },
-        {
             "id": "treasure",
             "name": "🏺 Выкопать 1 сокровище (не хлам)",
             "bp": 1,
@@ -231,48 +223,6 @@ ACTIVITIES = {
         {
             "id": "online_3h",
             "name": "🕒 3 часа в онлайне",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x2",
-            "name": "🕒 3 часа в онлайне (x2)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x3",
-            "name": "🕒 3 часа в онлайне (x3)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x4",
-            "name": "🕒 3 часа в онлайне (x4)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x5",
-            "name": "🕒 3 часа в онлайне (x5)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x6",
-            "name": "🕒 3 часа в онлайне (x6)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x7",
-            "name": "🕒 3 часа в онлайне (x7)",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h_x8",
-            "name": "🕒 3 часа в онлайне (x8)",
             "bp": 2,
             "bp_vip": 4,
         },
@@ -320,12 +270,6 @@ ACTIVITIES = {
             "bp": 2,
             "bp_vip": 4,
         },
-        {
-            "id": "car_repair_coop",
-            "name": "👨‍🔧 Починить деталь авто другого игрока в автосервисе",
-            "bp": 2,
-            "bp_vip": 4,
-        },
     ],
 }
 
@@ -334,18 +278,13 @@ _ALL_ACTIVITIES_CACHE = None
 _ACTIVITIES_BY_ID_CACHE = None
 
 
-def _initialize_caches():
-    """Initialize caches and pre-compute search fields."""
+def _initialize_caches() -> None:
+    """Initialize caches for fast activity lookups."""
     global _ALL_ACTIVITIES_CACHE, _ACTIVITIES_BY_ID_CACHE
 
     _ALL_ACTIVITIES_CACHE = []
     for category_activities in ACTIVITIES.values():
         _ALL_ACTIVITIES_CACHE.extend(category_activities)
-
-    # Pre-lowercase for faster autocomplete
-    for activity in _ALL_ACTIVITIES_CACHE:
-        activity["_name_lower"] = activity["name"].lower()
-        activity["_id_lower"] = activity["id"].lower()
 
     # O(1) lookup dictionary
     _ACTIVITIES_BY_ID_CACHE = {
@@ -358,31 +297,11 @@ _initialize_caches()
 TOTAL_ACTIVITIES = len(_ALL_ACTIVITIES_CACHE)
 
 
-def get_all_activities():
+def get_all_activities() -> List[Activity]:
     """Get flat list of all activities (cached). O(1)"""
     return _ALL_ACTIVITIES_CACHE
 
 
-def get_activity_by_id(activity_id):
+def get_activity_by_id(activity_id: str) -> Optional[Activity]:
     """Find activity by ID. O(1) dictionary lookup."""
     return _ACTIVITIES_BY_ID_CACHE.get(activity_id)
-
-
-def search_activities(query, max_results=25):
-    """Search activities by name or ID (uses pre-lowercased fields)."""
-    if not query:
-        return _ALL_ACTIVITIES_CACHE[:max_results]
-
-    query_lower = query.lower()
-    results = []
-
-    for activity in _ALL_ACTIVITIES_CACHE:
-        if len(results) >= max_results:
-            break
-        if (
-            query_lower in activity["_name_lower"]
-            or query_lower in activity["_id_lower"]
-        ):
-            results.append(activity)
-
-    return results

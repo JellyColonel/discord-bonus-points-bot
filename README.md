@@ -1,6 +1,8 @@
-# 💎 Discord Bonus Points Bot
+# 💎 Bonus Points Web Dashboard
 
-A Discord bot with web dashboard for tracking daily bonus points activities. Features VIP support, BP balance tracking, and an intuitive web interface for managing activities.
+A web dashboard for tracking daily bonus points activities. Features VIP support, BP balance tracking, and an intuitive web interface for managing activities.
+
+> **Note:** This is the web-only version. The Discord bot has been removed.
 
 ## ✨ Features
 
@@ -9,7 +11,7 @@ A Discord bot with web dashboard for tracking daily bonus points activities. Fea
 - **BP Balance System** - Persistent balance tracking across days
 - **VIP Support** - Double rewards for VIP users (toggleable)
 - **x2 Events** - Admin-toggleable double BP events
-- **Daily Reset** - Automatic activity reset at 07:00 Moscow Time
+- **Daily Reset** - Activities reset at 07:00 Moscow Time (04:00 UTC)
 - **Completion Timestamps** - Track when activities were completed (sorted by most recent)
 
 ### Web Dashboard
@@ -23,100 +25,78 @@ A Discord bot with web dashboard for tracking daily bonus points activities. Fea
 - **Balance Management** - Set balance directly from the dashboard
 
 ### Performance Optimizations
-- **Activity Caching** - O(1) lookups for fast autocomplete
-- **Database Indexing** - Optimized queries for 80-85% faster performance
-- **WAL Mode** - Better concurrent access for Discord bot + web server
-- **Connection Pooling** - Efficient database resource management
+- **Activity Caching** - O(1) lookups for fast operations
+- **Database Indexing** - Optimized queries for fast performance
+- **WAL Mode** - Better concurrent access for web server
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.8 or higher
-- Discord Bot Token ([Create one here](https://discord.com/developers/applications))
 - Discord OAuth2 Application configured for web dashboard
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/bonus_points_bot.git
-   cd bonus_points_bot
+   git clone https://github.com/yourusername/bonus_points_web.git
+   cd bonus_points_web
    ```
 
-2. **Install dependencies**
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # or
+   venv\Scripts\activate  # Windows
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configure the bot**
+4. **Configure the application**
    ```bash
    cp .env.example .env
    # Edit .env and add your configuration
    ```
 
-4. **Run the bot and web server**
+5. **Run the web server**
    ```bash
    python run.py
    ```
    
-   This starts both:
-   - Discord bot on your configured server
-   - Web dashboard on http://localhost:5000
+   The web dashboard will be available at http://localhost:5000
 
 ## ⚙️ Configuration
 
 Create a `.env` file with the following variables:
 
 ```env
-# Discord Bot Configuration
-DISCORD_TOKEN=your_bot_token_here
-GUILD_ID=your_guild_id_here           # Optional: for faster command sync
-ADMIN_ROLE_ID=your_admin_role_id_here # Role that can toggle events
-
-# Web Dashboard Configuration
+# Discord OAuth2 (Get from: https://discord.com/developers/applications)
 DISCORD_CLIENT_ID=your_client_id_here
 DISCORD_CLIENT_SECRET=your_client_secret_here
 DISCORD_REDIRECT_URI=http://localhost:5000/callback
+
+# Flask Secret Key (Generate with: python -c "import secrets; print(secrets.token_hex(32))")
 SECRET_KEY=your_random_secret_key_here
 
-# Optional
-DOUBLE_BP_EVENT=False                 # Initial event state
+# Web Server Settings (Optional)
+WEB_HOST=0.0.0.0
+WEB_PORT=5000
+WEB_DEBUG=False
 ```
 
 ### Getting Discord OAuth2 Credentials
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Select your application
+2. Create a new application (or select existing)
 3. Go to "OAuth2" section
 4. Copy your Client ID and Client Secret
 5. Add redirect URI: `http://localhost:5000/callback`
 6. Under OAuth2 > URL Generator, select scopes: `identify`, `guilds`
-
-## 💻 Commands
-
-### User Commands
-
-#### 📋 Activities
-- `/activities` - View all activities and their completion status
-- `/complete [activity]` - Mark an activity as completed (adds BP)
-- `/uncomplete [activity]` - Mark an activity as incomplete (removes BP)
-
-#### 💰 Balance
-- `/balance` - View your current BP balance
-- `/setbalance [amount]` - Set your BP balance to a specific amount
-- `/total` - View today's earnings and total balance
-
-#### ⚙️ Settings
-- `/setvip [true/false]` - Enable/disable VIP status
-- `/eventstatus` - Check if x2 BP event is active
-
-#### 📖 Help
-- `/help` - Show all available commands
-
-### Admin Commands
-
-- `/toggleevent [true/false]` - Enable/disable x2 BP event (requires admin role or Administrator permission)
 
 ## 🌐 Web Dashboard
 
@@ -134,99 +114,68 @@ Access the web dashboard at `http://localhost:5000` (or your configured host).
 
 ### Deployment Options:
 
-#### Option 1: Same Server (Local/VPS)
-The web dashboard runs alongside the Discord bot. Just ensure port 5000 is accessible.
+#### Option 1: Local Development
+```bash
+python run.py
+```
 
-#### Option 2: Cloudflare Tunnel (Recommended for Public Access)
-No VPS or port forwarding needed! Use Cloudflare Tunnel to expose your local dashboard:
+#### Option 2: Production with Gunicorn
+```bash
+gunicorn -w 4 -b 0.0.0.0:5000 web.app:app
+```
+
+#### Option 3: Cloudflare Tunnel (Recommended for Public Access)
+No VPS or port forwarding needed:
 ```bash
 cloudflared tunnel --url http://localhost:5000
 ```
 
 ## 🎯 BP Balance System
 
-The bot tracks your total BP balance persistently:
+The dashboard tracks your total BP balance persistently:
 
-1. **Initial Setup**: Use `/setbalance 1000` or the web dashboard to set your starting balance
-2. **Earn BP**: Complete activities via Discord or web dashboard to add BP
-3. **Track Progress**: Use `/balance`, `/total`, or view the dashboard
-4. **Undo Mistakes**: Use `/uncomplete` or uncheck activities on the dashboard
+1. **Initial Setup**: Set your starting balance using the balance control
+2. **Earn BP**: Complete activities to add BP
+3. **Track Progress**: View progress bars and statistics
+4. **Undo Mistakes**: Uncheck activities to remove BP
 
 ### BP Calculation
 
-- **Base activity**: 2 BP
-- **With VIP**: 4 BP (2x multiplier)
-- **With Event**: 4 BP (2x multiplier)
-- **VIP + Event**: 8 BP (4x multiplier)
-
-### Example Usage
-
-```
-/setbalance 1500
-→ ✅ Balance set: 1500 BP
-
-/complete browser
-→ ✅ Activity "Visit any website" completed!
-   +2 BP
-   Current balance: 1502 BP
-
-/balance
-→ 💰 Bonus Points Balance: 1502 BP
-   VIP Status: ❌ Inactive
-
-/total
-→ 💰 Today's Total
-   Earned today: 2 BP
-   Current balance: 1502 BP
-   Activities completed: 1/41
-```
+- **Base activity**: 2 BP (or custom value per activity)
+- **With VIP**: 2x multiplier
+- **With Event**: 2x multiplier
+- **VIP + Event**: 4x multiplier
 
 ## 🎉 Event System
 
-Administrators can enable x2 BP events that double all rewards. Events persist across bot restarts and are stored in the database.
+Administrators can enable x2 BP events that double all rewards. Events persist across restarts and are stored in the database.
+
+To toggle events, use the API endpoint:
+```bash
+POST /api/toggle_event
+Body: {"event_status": true}
+```
 
 ## 📊 Database Schema
 
-The bot uses SQLite with the following tables:
+The application uses SQLite with the following tables:
 
 - **users** - Stores user VIP status and BP balance
 - **activities** - Tracks daily activity completions with timestamps
-  - `completed_at` - Records when each activity was completed (for sorting)
-- **settings** - Persistent bot configuration (event status, etc.)
-
-### Recent Schema Updates
-- Added `completed_at` timestamp column for tracking completion times
-- Completed activities now sort by most recent first
-- Optimized indexes for faster queries
+- **settings** - Persistent configuration (event status, etc.)
 
 ## 📁 Project Structure
 
 ```
-bonus_points_bot/
-│
-├── bot/                       # Discord bot code
-│   ├── __init__.py
-│   ├── main.py               # Bot entry point
-│   ├── core/                 # Core functionality
-│   │   ├── bot.py           # Bot setup
-│   │   ├── config.py        # Configuration
-│   │   └── database.py      # Database operations
-│   ├── commands/            # Command modules
-│   │   ├── activities.py   # Activity commands
-│   │   ├── balance.py      # Balance commands
-│   │   ├── admin.py        # Admin commands
-│   │   └── help.py         # Help command
-│   ├── data/               # Data definitions
-│   │   └── activities.py  # Activity definitions
-│   └── utils/             # Utilities
-│       ├── embeds.py     # Discord embeds
-│       └── helpers.py    # Helper functions
-│
+bonus_points_web/
 ├── web/                    # Web dashboard code
 │   ├── __init__.py
 │   ├── app.py             # Flask application
 │   ├── auth.py            # Discord OAuth2
 │   ├── config.py          # Web configuration
+│   ├── database.py        # Database operations
+│   ├── activities.py      # Activity definitions
+│   ├── helpers.py         # Helper functions
 │   ├── templates/         # HTML templates
 │   │   ├── base.html     # Base template
 │   │   ├── dashboard.html # Main dashboard
@@ -236,26 +185,23 @@ bonus_points_bot/
 │       │   └── style.css # Dashboard styles
 │       └── js/
 │           └── dashboard.js # Dashboard logic
-│
 ├── data/                  # Runtime data (not in git)
 │   └── bonus_points.db   # SQLite database
-│
 ├── logs/                 # Log files (not in git)
-│   └── bot.log          # Activity logs
-│
+│   └── web.log          # Activity logs
 ├── .env                  # Environment variables (not in git)
 ├── .env.example         # Example environment file
 ├── .gitignore          # Git ignore rules
 ├── README.md           # This file
 ├── requirements.txt    # Python dependencies
-└── run.py             # Main entry point (starts bot + web)
+└── run.py             # Main entry point
 ```
 
 ## 🔧 Development
 
 ### Adding New Activities
 
-Edit `bot/data/activities.py`:
+Edit `web/activities.py`:
 
 ```python
 {
@@ -266,14 +212,6 @@ Edit `bot/data/activities.py`:
 }
 ```
 
-Activities are automatically available in both Discord commands and web dashboard.
-
-### Adding New Commands
-
-1. Create a new module in `bot/commands/`
-2. Define setup function for your commands
-3. Import and call it in `bot/commands/__init__.py`
-
 ### Customizing the Dashboard
 
 - **Styles**: Edit `web/static/css/style.css`
@@ -283,25 +221,14 @@ Activities are automatically available in both Discord commands and web dashboar
 
 ## 📝 Logging
 
-Logs are stored in `logs/bot.log` with:
-- Bot startup and shutdown
-- Command usage
-- Database operations
-- Web server requests
+Logs are stored in `logs/web.log` with:
+- Server startup and shutdown
+- User login/logout
+- Activity completions
+- Balance changes
 - Error messages with stack traces
 
-## 🐛 Troubleshooting
-
-### Bot won't start
-- Check Discord token in `.env`
-- Ensure Python 3.8+ is installed
-- Install dependencies: `pip install -r requirements.txt`
-- Check `logs/bot.log` for error details
-
-### Commands not showing up
-- If GUILD_ID is set, commands sync instantly to that guild
-- Global commands can take up to 1 hour to propagate
-- Try kicking and re-inviting the bot
+## 🛠 Troubleshooting
 
 ### Web dashboard not accessible
 - Ensure Flask is running (check console output)
@@ -314,18 +241,16 @@ Logs are stored in `logs/bot.log` with:
 - Check file permissions on `bonus_points.db`
 - For corruption, backup and delete database (will lose data)
 
-### Performance issues
-- Database is optimized with indexes and WAL mode
-- Activity cache provides O(1) autocomplete lookups
-- If slow, check `logs/bot.log` for error patterns
+### OAuth2 Issues
+- **Error: "Redirect URI mismatch"**
+  - Ensure redirect URI in `.env` matches Discord Developer Portal exactly
+  - Include protocol (http:// or https://)
 
 ## 💡 Tips
 
-- **Autocomplete**: Use it when typing commands - saves time!
 - **Web Dashboard**: Best for managing multiple activities at once
-- **Discord Commands**: Great for quick single activity updates
-- **VIP Status**: Toggle via web dashboard badge or `/setvip` command
-- **Search**: Use the search box on dashboard for 40+ activities
+- **VIP Status**: Toggle via the VIP badge on dashboard
+- **Search**: Use the search box for 40+ activities
 - **Mobile**: Dashboard is fully responsive - use on any device
 - **Completion History**: Completed tab shows most recent activities first
 
@@ -333,58 +258,13 @@ Logs are stored in `logs/bot.log` with:
 
 - Never commit `.env` file to git
 - Keep `SECRET_KEY` random and secure (generate with `secrets.token_hex(32)`)
-- Only share your bot token and client secret securely
+- Only share your client secret securely
 - Use HTTPS in production (Cloudflare Tunnel provides this)
 - Regularly update dependencies for security patches
-
-## 🚀 Performance Features
-
-- **Activity Caching**: Lightning-fast autocomplete with O(1) lookups
-- **Database Indexing**: Specialized indexes for different query patterns
-- **WAL Mode**: Concurrent access for bot + web server
-- **Query Batching**: Efficient data retrieval
-- **Connection Pooling**: Optimized database connections
-
-## 📈 Recent Improvements
-
-### v2.0 - Web Dashboard Release
-- Complete web dashboard with Discord OAuth2
-- Real-time activity updates
-- Mobile-responsive design
-- Activity search functionality
-- Tabbed interface (Active/Completed)
-- One-click VIP toggle
-
-### v2.1 - Completion Tracking
-- Added `completed_at` timestamps
-- Completed activities sorted by most recent
-- Database migration for existing installations
-
-### v2.2 - UI Polish
-- Platinum VIP badge styling
-- Compact balance control layout
-- Fixed emoji encoding issues
-- Display name support (shows Discord display name)
-- Improved mobile responsiveness
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Discord.py for the excellent Discord API wrapper
-- Flask for the lightweight web framework
-- SQLite for reliable embedded database
-- The Discord community for feedback and suggestions
 
 ---
 

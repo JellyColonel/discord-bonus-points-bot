@@ -1,26 +1,37 @@
-# bonus_points_bot/bot/core/database.py
-"""Database operations module - FIXED with smart date handling."""
+"""Database operations module for Bonus Points Web Dashboard."""
 
 import logging
 import sqlite3
+import threading
+from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import Generator, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class Database:
-    """Handles all database operations for the bot."""
+    """Handles all database operations for the web dashboard.
+
+    Uses thread-local connections for efficient connection reuse.
+    Each thread gets its own connection that persists across operations.
+    """
 
     def __init__(self, db_path: str = "bonus_points.db"):
         self.db_path = db_path
+        self._local = threading.local()
+        self._lock = threading.Lock()
         logger.info(f"Initializing database at: {db_path}")
         self.init_db()
         logger.info("Database initialization complete")
 
-    def get_connection(self):
-        """Get a database connection with performance optimizations."""
-        conn = sqlite3.connect(self.db_path)
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create a new database connection with performance optimizations."""
+        conn = sqlite3.connect(
+            self.db_path,
+            check_same_thread=False,  # Safe because we use thread-local storage
+            timeout=30.0,  # Wait up to 30s for locks
+        )
 
         # Write-Ahead Logging mode - better concurrency
         conn.execute("PRAGMA journal_mode=WAL")
@@ -28,26 +39,105 @@ class Database:
         # Increase cache size from 2MB to 10MB
         conn.execute("PRAGMA cache_size=-10000")
 
-        # Faster synchronization (safe for Discord bot use case)
+        # Faster synchronization
         conn.execute("PRAGMA synchronous=NORMAL")
 
         # Use memory for temporary tables
         conn.execute("PRAGMA temp_store=MEMORY")
 
+        # Enable foreign keys (good practice)
+        conn.execute("PRAGMA foreign_keys=ON")
+
         return conn
 
-    def init_db(self):
+    def get_connection(self) -> sqlite3.Connection:
+        """Get a thread-local database connection.
+
+        Returns an existing connection for this thread if available,
+        otherwise creates a new one. Connections are reused within
+        the same thread for better performance.
+        """
+        # Check if this thread already has a connection
+        conn = getattr(self._local, "connection", None)
+
+        if conn is not None:
+            # Verify connection is still valid
+            try:
+                conn.execute("SELECT 1")
+                return conn
+            except sqlite3.Error:
+                # Connection is broken, close it and create a new one
+                logger.warning("Thread-local connection was broken, recreating")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = None
+
+        # Create new connection for this thread
+        conn = self._create_connection()
+        self._local.connection = conn
+        logger.debug(
+            f"Created new connection for thread {threading.current_thread().name}"
+        )
+        return conn
+
+    @contextmanager
+    def get_cursor(self, commit: bool = True) -> Generator[sqlite3.Cursor, None, None]:
+        """Context manager for database operations.
+
+        Uses thread-local connection for efficiency. The connection is
+        reused across multiple operations within the same thread.
+
+        Args:
+            commit: Whether to commit after operations (default True).
+                   Set to False for read-only operations.
+
+        Yields:
+            sqlite3.Cursor: Database cursor for executing queries.
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            yield cursor
+            if commit:
+                conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+    def close_connection(self) -> None:
+        """Close the connection for the current thread.
+
+        Call this when a thread is done with database operations,
+        such as at the end of a request in a web application.
+        """
+        conn = getattr(self._local, "connection", None)
+        if conn is not None:
+            try:
+                conn.close()
+                logger.debug(
+                    f"Closed connection for thread {threading.current_thread().name}"
+                )
+            except Exception as e:
+                logger.warning(f"Error closing connection: {e}")
+            finally:
+                self._local.connection = None
+
+    def init_db(self) -> None:
         """Initialize database tables."""
         logger.info("Creating/verifying database tables...")
-        with self.get_connection() as conn:
+        conn = self._create_connection()  # Use fresh connection for init
+        try:
             cursor = conn.cursor()
 
-            # Users table with bp_balance column
+            # Users table with bp_balance and event_active columns
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     user_id TEXT PRIMARY KEY,
                     vip_status INTEGER DEFAULT 0,
-                    bp_balance INTEGER DEFAULT 0
+                    bp_balance INTEGER DEFAULT 0,
+                    event_active INTEGER DEFAULT 0
                 )
             """)
             logger.debug("Users table created/verified")
@@ -61,6 +151,16 @@ class Database:
             except sqlite3.OperationalError:
                 # Column already exists
                 logger.debug("bp_balance column already exists")
+
+            # Try to add event_active column to existing users table
+            try:
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN event_active INTEGER DEFAULT 0"
+                )
+                logger.info("Added event_active column to users table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                logger.debug("event_active column already exists")
 
             # Activities table
             cursor.execute("""
@@ -93,42 +193,29 @@ class Database:
             """)
             logger.debug("Settings table created/verified")
 
-            # Dashboard messages table for persistent dashboard tracking
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS dashboard_messages (
-                    user_id TEXT PRIMARY KEY,
-                    channel_id TEXT NOT NULL,
-                    message_id TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            logger.debug("Dashboard messages table created/verified")
-
             # ============================================================
-            # OPTIMIZED INDEXES - Much faster queries!
+            # OPTIMIZED INDEXES
             # ============================================================
 
             # Primary lookup index - covers most queries
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_lookup 
+                CREATE INDEX IF NOT EXISTS idx_activities_lookup
                 ON activities(user_id, date, activity_id)
             """)
 
-            # Specialized index for autocomplete (finding completed activities)
-            # Partial index only includes completed=1 rows (smaller, faster)
+            # Specialized index for finding completed activities
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_completed 
+                CREATE INDEX IF NOT EXISTS idx_activities_completed
                 ON activities(user_id, date) WHERE completed = 1
             """)
 
-            # Index for date-based queries (cleanup, daily reset)
+            # Index for date-based queries (cleanup)
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_activities_date 
+                CREATE INDEX IF NOT EXISTS idx_activities_date
                 ON activities(date)
             """)
 
-            # Covering index for status checks (includes completed in index)
+            # Covering index for status checks
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_activities_status
                 ON activities(user_id, activity_id, date, completed)
@@ -137,13 +224,14 @@ class Database:
             logger.debug("Activity indexes created/verified")
 
             conn.commit()
+        finally:
+            conn.close()
         logger.info("Database tables ready")
 
     # User VIP methods
     def get_user_vip_status(self, user_id: int) -> bool:
         """Get user's VIP status."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 "SELECT vip_status FROM users WHERE user_id = ?", (str(user_id),)
             )
@@ -152,11 +240,10 @@ class Database:
             logger.debug(f"User {user_id} VIP status: {vip}")
             return vip
 
-    def set_user_vip_status(self, user_id: int, vip_status: bool):
+    def set_user_vip_status(self, user_id: int, vip_status: bool) -> None:
         """Set user's VIP status."""
         logger.info(f"Setting VIP status for user {user_id}: {vip_status}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO users (user_id, vip_status) VALUES (?, ?)
@@ -164,13 +251,35 @@ class Database:
             """,
                 (str(user_id), int(vip_status), int(vip_status)),
             )
-            conn.commit()
+
+    # User Event methods
+    def get_user_event_status(self, user_id: int) -> bool:
+        """Get user's x2 event status."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT event_active FROM users WHERE user_id = ?", (str(user_id),)
+            )
+            result = cursor.fetchone()
+            event_active = bool(result[0]) if result else False
+            logger.debug(f"User {user_id} event status: {event_active}")
+            return event_active
+
+    def set_user_event_status(self, user_id: int, event_active: bool) -> None:
+        """Set user's x2 event status."""
+        logger.info(f"Setting event status for user {user_id}: {event_active}")
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (user_id, event_active) VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET event_active = ?
+            """,
+                (str(user_id), int(event_active), int(event_active)),
+            )
 
     # BP Balance methods
     def get_user_bp_balance(self, user_id: int) -> int:
         """Get user's current BP balance."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 "SELECT bp_balance FROM users WHERE user_id = ?", (str(user_id),)
             )
@@ -179,11 +288,10 @@ class Database:
             logger.debug(f"User {user_id} balance: {balance} BP")
             return balance
 
-    def set_user_bp_balance(self, user_id: int, balance: int):
+    def set_user_bp_balance(self, user_id: int, balance: int) -> None:
         """Set user's BP balance."""
         logger.info(f"Setting balance for user {user_id}: {balance} BP")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO users (user_id, bp_balance) VALUES (?, ?)
@@ -191,36 +299,42 @@ class Database:
             """,
                 (str(user_id), int(balance), int(balance)),
             )
-            conn.commit()
 
     def add_user_bp(self, user_id: int, amount: int) -> int:
-        """Add BP to user's balance."""
+        """Add BP to user's balance.
+
+        Note: This is not atomic - for high-concurrency scenarios,
+        consider using a single UPDATE with arithmetic.
+        """
         current_balance = self.get_user_bp_balance(user_id)
         new_balance = current_balance + amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} earned {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} earned {amount} BP (Balance: {current_balance} -> {new_balance})"
         )
         return new_balance
 
     def subtract_user_bp(self, user_id: int, amount: int) -> int:
-        """Subtract BP from user's balance."""
+        """Subtract BP from user's balance.
+
+        Note: This is not atomic - for high-concurrency scenarios,
+        consider using a single UPDATE with arithmetic.
+        """
         current_balance = self.get_user_bp_balance(user_id)
         new_balance = current_balance - amount
         self.set_user_bp_balance(user_id, new_balance)
         logger.info(
-            f"User {user_id} lost {amount} BP (Balance: {current_balance} â†’ {new_balance})"
+            f"User {user_id} lost {amount} BP (Balance: {current_balance} -> {new_balance})"
         )
         return new_balance
 
     # Activity methods
     def get_activity_status(self, user_id: int, activity_id: str, date: str) -> bool:
         """Check if an activity is completed."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
-                SELECT completed FROM activities 
+                SELECT completed FROM activities
                 WHERE user_id = ? AND activity_id = ? AND date = ?
             """,
                 (str(user_id), activity_id, date),
@@ -234,20 +348,19 @@ class Database:
 
     def set_activity_status(
         self, user_id: int, activity_id: str, date: str, completed: bool
-    ):
+    ) -> None:
         """Set activity completion status."""
         logger.info(
             f"User {user_id} {'completed' if completed else 'uncompleted'} activity {activity_id} on {date}"
         )
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             # Set completed_at to current UTC time when completing, NULL when uncompleting
             completed_at = datetime.now(timezone.utc).isoformat() if completed else None
             cursor.execute(
                 """
                 INSERT INTO activities (user_id, activity_id, date, completed, completed_at)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(user_id, activity_id, date) 
+                ON CONFLICT(user_id, activity_id, date)
                 DO UPDATE SET completed = ?, completed_at = ?
             """,
                 (
@@ -260,15 +373,16 @@ class Database:
                     completed_at,
                 ),
             )
-            conn.commit()
 
     def get_user_completed_activities(self, user_id: int, date: str) -> List[str]:
-        """Get list of completed activities for a user on a specific date, sorted by completion time (most recent first)."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        """Get list of completed activities for a user on a specific date.
+
+        Results are sorted by completion time (most recent first).
+        """
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute(
                 """
-                SELECT activity_id FROM activities 
+                SELECT activity_id FROM activities
                 WHERE user_id = ? AND date = ? AND completed = 1
                 ORDER BY completed_at DESC NULLS LAST
             """,
@@ -284,19 +398,17 @@ class Database:
     # Settings methods
     def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get a setting value from database."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor(commit=False) as cursor:
             cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
             result = cursor.fetchone()
             value = result[0] if result else default
             logger.debug(f"Get setting {key}: {value}")
             return value
 
-    def set_setting(self, key: str, value: str):
+    def set_setting(self, key: str, value: str) -> None:
         """Set a setting value in database."""
         logger.info(f"Setting {key} = {value}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        with self.get_cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO settings (key, value) VALUES (?, ?)
@@ -304,93 +416,20 @@ class Database:
             """,
                 (key, str(value), str(value)),
             )
-            conn.commit()
 
-    # Dashboard persistence methods
-    def save_dashboard_message(self, user_id: int, channel_id: int, message_id: int):
-        """Save dashboard message IDs to database for persistence."""
-        logger.info(
-            f"Saving dashboard for user {user_id}: channel={channel_id}, message={message_id}"
-        )
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO dashboard_messages (user_id, channel_id, message_id, last_updated)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET 
-                    channel_id = ?,
-                    message_id = ?,
-                    last_updated = ?
-            """,
-                (
-                    str(user_id),
-                    str(channel_id),
-                    str(message_id),
-                    datetime.utcnow().isoformat(),
-                    str(channel_id),
-                    str(message_id),
-                    datetime.utcnow().isoformat(),
-                ),
-            )
-            conn.commit()
+    def optimize_database(self) -> None:
+        """Run VACUUM and ANALYZE to optimize database performance.
 
-    def get_dashboard_message(self, user_id: int) -> Optional[Tuple[int, int]]:
-        """Get saved dashboard message IDs for a user.
-
-        Returns:
-            Tuple of (channel_id, message_id) or None if not found
+        Note: VACUUM requires exclusive access, so this creates a
+        fresh connection rather than using the thread-local one.
         """
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT channel_id, message_id 
-                FROM dashboard_messages 
-                WHERE user_id = ?
-            """,
-                (str(user_id),),
-            )
-            result = cursor.fetchone()
-            if result:
-                channel_id = int(result[0])
-                message_id = int(result[1])
-                logger.debug(
-                    f"Retrieved dashboard for user {user_id}: channel={channel_id}, message={message_id}"
-                )
-                return (channel_id, message_id)
-            return None
-
-    def delete_dashboard_message(self, user_id: int):
-        """Delete dashboard message record for a user."""
-        logger.info(f"Deleting dashboard record for user {user_id}")
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM dashboard_messages WHERE user_id = ?", (str(user_id),)
-            )
-            conn.commit()
-
-    def get_all_dashboard_messages(self) -> List[Tuple[int, int, int]]:
-        """Get all saved dashboard messages.
-
-        Returns:
-            List of tuples: (user_id, channel_id, message_id)
-        """
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT user_id, channel_id, message_id FROM dashboard_messages"
-            )
-            results = cursor.fetchall()
-            return [(int(row[0]), int(row[1]), int(row[2])) for row in results]
-
-    def optimize_database(self):
-        """Run VACUUM and ANALYZE to optimize database performance."""
         logger.info("Running database optimization...")
-        with self.get_connection() as conn:
+        conn = self._create_connection()
+        try:
             conn.execute("VACUUM")
             conn.execute("ANALYZE")
+        finally:
+            conn.close()
         logger.info("Database optimization complete")
 
 
@@ -399,8 +438,8 @@ def get_today_date() -> str:
     Get today's activity date in UTC (07:00 MSK = 04:00 UTC).
 
     Returns the "activity day" which continues until 04:00 UTC:
-    - From 00:00 to 03:59 UTC â†’ Returns YESTERDAY's date (activities still valid)
-    - From 04:00 to 23:59 UTC â†’ Returns TODAY's date (new activity day)
+    - From 00:00 to 03:59 UTC -> Returns YESTERDAY's date (activities still valid)
+    - From 04:00 to 23:59 UTC -> Returns TODAY's date (new activity day)
 
     This prevents the "midnight reset bug" where progress appears at 0
     between 00:00-04:00 UTC before the actual daily reset runs.

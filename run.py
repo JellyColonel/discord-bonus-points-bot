@@ -1,43 +1,75 @@
 #!/usr/bin/env python3
 """
-Discord Bonus Points Bot + Web Dashboard
-Main entry point for running both the bot and web server.
+Bonus Points Web Dashboard
+Main entry point for running the web server.
 """
 
 import logging
-from threading import Thread
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+# Setup logging
+def setup_logging():
+    """Configure logging for the web dashboard."""
+    log_dir = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+
+    # Clear any existing handlers
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.setLevel(logging.INFO)
+
+    # Create formatters
+    detailed_formatter = logging.Formatter(
+        "[%(asctime)s] %(levelname)-8s | %(name)-25s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    console_formatter = logging.Formatter(
+        "[%(asctime)s] %(levelname)-8s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    # File handler - detailed logging
+    file_handler = logging.FileHandler(log_dir / "web.log", encoding="utf-8", mode="a")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(detailed_formatter)
+    root_logger.addHandler(file_handler)
+
+    # Console handler - cleaner output
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+    # Get logger for our app
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 80)
+    logger.info("Logging system initialized")
+    logger.info("=" * 80)
+
+    return logger
 
 
-def run_bot():
-    """Run the Discord bot."""
-    from bot.main import main
+def main():
+    """Main entry point."""
+    logger = setup_logging()
 
-    main()
+    logger.info("=" * 80)
+    logger.info("🚀 Starting Bonus Points Web Dashboard")
+    logger.info("=" * 80)
 
+    # Ensure data directory exists
+    data_dir = Path(__file__).parent / "data"
+    data_dir.mkdir(exist_ok=True)
 
-def run_web_server():
-    """Run the web dashboard."""
+    # Run web server
     from web.app import run_web
-
     run_web()
+
+    logger.info("=" * 80)
+    logger.info("👋 Web dashboard has stopped")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":
-    logger.info("=" * 80)
-    logger.info("🚀 Starting Bonus Points Bot + Web Dashboard")
-    logger.info("=" * 80)
-
-    # Start web server in background thread
-    web_thread = Thread(target=run_web_server, daemon=True, name="WebDashboard")
-    web_thread.start()
-    logger.info("✅ Web dashboard thread started")
-
-    # Start bot (this blocks until bot stops)
-    logger.info("🤖 Starting Discord bot...")
-    run_bot()
-
-    logger.info("=" * 80)
-    logger.info("👋 Both bot and web dashboard have stopped")
-    logger.info("=" * 80)
+    main()
