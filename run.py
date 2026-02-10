@@ -5,6 +5,7 @@ Main entry point for running the web server.
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # Setup logging
@@ -29,8 +30,10 @@ def setup_logging():
         datefmt="%H:%M:%S",
     )
 
-    # File handler - detailed logging
-    file_handler = logging.FileHandler(log_dir / "web.log", encoding="utf-8", mode="a")
+    # File handler - detailed logging with rotation
+    file_handler = RotatingFileHandler(
+        log_dir / "web.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+    )
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(detailed_formatter)
     root_logger.addHandler(file_handler)

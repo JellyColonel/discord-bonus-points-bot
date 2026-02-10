@@ -58,7 +58,7 @@ def require_auth(f: F) -> F:
     @wraps(f)
     def decorated_function(*args: Any, **kwargs: Any) -> Response:
         if "user" not in session:
-            return redirect(url_for("login"))
+            return redirect(url_for("pages.login"))
         return f(*args, **kwargs)
 
     return decorated_function  # type: ignore[return-value]
