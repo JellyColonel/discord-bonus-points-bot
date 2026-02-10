@@ -8,298 +8,478 @@ from typing import Any, Dict, List, Optional
 # Type alias for activity dictionary
 Activity = Dict[str, Any]
 
-ACTIVITIES = {
-    "📍 Одиночные": [
-        {
-            "id": "lottery",
-            "name": "🎟️ Купить лотерейный билет",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "browser",
-            "name": "🌐 Посетить любой сайт в браузере",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "match_like",
-            "name": "❤️ Поставить лайк любой анкете в Match",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "brawl",
-            "name": "🎧 Зайти в любой канал в Brawl",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "pet_ball",
-            "name": "🐾 Кинуть мяч питомцу 15 раз",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "pet_commands",
-            "name": "🐶 15 выполненных питомцем команд",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "darts",
-            "name": "🎯 Победить в дартс",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "casino_wheel",
-            "name": "🎰 Ставка в колесе удачи в казино",
-            "bp": 3,
-            "bp_vip": 6,
-        },
-        {
-            "id": "casino_zeros",
-            "name": "💀 Нули в казино",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "basketball",
-            "name": "🏀 Забросить 2 мяча в баскетболе",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "football",
-            "name": "⚽ Забить 2 гола в футболе",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "leasing",
-            "name": "💳 Сделать платеж по лизингу",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "shooting_range",
-            "name": "🔫 Успешная тренировка в тире",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "car_repair",
-            "name": "🔧 Починить деталь в автосервисе",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "cinema",
-            "name": "🎬 Добавить 5 видео в кинотеатре",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "film_studio",
-            "name": "🎥 Арендовать киностудию",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "metro",
-            "name": "🚇 Проехать 1 станцию на метро",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "volleyball",
-            "name": "🏐 Поиграть 1 минуту в воллейбол",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "table_tennis_solo",
-            "name": "🏓 Поиграть 1 минуту в настольный теннис",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "tennis_solo",
-            "name": "🎾 Поиграть 1 минуту в большой теннис",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "fishing",
-            "name": "🎣 Поймать 20 рыб",
-            "bp": 4,
-            "bp_vip": 8,
-        },
-        {
-            "id": "bus",
-            "name": "🚌 2 круга на любом маршруте автобусника",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "port",
-            "name": "⚙️ 25 действий в порту",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "construction",
-            "name": "⚙️ 25 действий на стройке",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "mine",
-            "name": "⚙️ 25 действий в шахте",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "farm",
-            "name": "🌾 10 действий на ферме",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "firefighter",
-            "name": '🔥 Потушить 25 "огоньков" пожарным',
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "trucker",
-            "name": "🚛 Выполнить 3 заказа дальнобойщиком",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "gym",
-            "name": "💪 20 подходов в тренажерном зале",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "club_quests",
-            "name": "🎫 Выполнить 2 квеста любых клубов",
-            "bp": 4,
-            "bp_vip": 8,
-        },
-        {
-            "id": "hunting",
-            "name": "🐻 5 раз снять 100% шкуру с животных",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "dp_case",
-            "name": "💎 Прокрутить за DP серебрянный или золотой кейс",
-            "bp": 10,
-            "bp_vip": 20,
-        },
-        {
-            "id": "treasure",
-            "name": "🏺 Выкопать 1 сокровище (не хлам)",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "post_office",
-            "name": "📦 10 посылок на почте",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "surgeon",
-            "name": "💉 Два раза оплатить смену внешности у хирурга в EMS",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-        {
-            "id": "online_3h",
-            "name": "🕒 3 часа в онлайне",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-    ],
-    "🤝 Парные": [
-        {
-            "id": "armwrestling",
-            "name": "💪 Победить в армрестлинге",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "karting_pair",
-            "name": "🏎️ Выиграть гонку в картинге",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "mafia",
-            "name": "🎭 Сыграть в мафию в казино",
-            "bp": 3,
-            "bp_vip": 6,
-        },
-        {
-            "id": "training_complex",
-            "name": "🏋️ Выиграть 5 игр в тренировочном комплексе (ставка ≥ $100)",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "street_race",
-            "name": "🏁 Проехать 1 уличную гонку (ставка ≥ $1000)",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "arena",
-            "name": "🎮 Выиграть 3 любых игры на арене (ставка ≥ $100)",
-            "bp": 1,
-            "bp_vip": 2,
-        },
-        {
-            "id": "dance_battle",
-            "name": "💃 3 победы в Дэнс Баттлах",
-            "bp": 2,
-            "bp_vip": 4,
-        },
-    ],
-}
+# =============================================================================
+# Activity Definitions
+# =============================================================================
 
-# Caches initialized once at module load
-_ALL_ACTIVITIES_CACHE = None
-_ACTIVITIES_BY_ID_CACHE = None
+ACTIVITIES: List[Activity] = [
+    # =========================================================================
+    # SOLO ACTIVITIES
+    # =========================================================================
+    # -------------------------------------------------------------------------
+    # Solo - Low Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "lottery",
+        "name": "🎟️ Купить лотерейный билет",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "browser",
+        "name": "🌐 Посетить любой сайт в браузере",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "brawl",
+        "name": "🎧 Зайти в любой канал в Brawl",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "match_like",
+        "name": "❤️ Поставить лайк любой анкете в Match",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "business_materials",
+        "name": "📦 Заказ материалов для бизнеса вручную",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "shooting_range",
+        "name": "🔫 Успешная тренировка в тире",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "film_studio",
+        "name": "🎥 Арендовать киностудию",
+        "bp": 2,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "cinema",
+        "name": "🎬 Добавить 5 видео в кинотеатре",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "surgeon",
+        "name": "💉 Два раза оплатить смену внешности у хирурга",
+        "bp": 2,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "dp_case",
+        "name": "💎 Прокрутить за DP кейс",
+        "bp": 10,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "pet_ball",
+        "name": "🐾 Кинуть мяч питомцу 15 раз",
+        "bp": 2,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "pet_commands",
+        "name": "🐶 15 выполненных питомцем команд",
+        "bp": 2,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "casino_wheel",
+        "name": "🎰 Ставка в колесе удачи в казино",
+        "bp": 3,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "metro",
+        "name": "🚇 Проехать 1 станцию на метро",
+        "bp": 2,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "fishing",
+        "name": "🎣 Поймать 20 рыб",
+        "bp": 4,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "car_repair",
+        "name": "🔧 Починить деталь в автосервисе",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "basketball",
+        "name": "🏀 Забросить 2 мяча в баскетболе",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "football",
+        "name": "⚽ Забить 2 гола в футболе",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "darts",
+        "name": "🎯 Победить в дартс",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "volleyball",
+        "name": "🏐 Поиграть 1 минуту в волейбол",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "table_tennis",
+        "name": "🏓 Поиграть 1 минуту в настольный теннис",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "tennis",
+        "name": "🎾 Поиграть 1 минуту в большой теннис",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "leasing",
+        "name": "💳 Сделать платеж по лизингу",
+        "bp": 1,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "greenhouse",
+        "name": "🌿 Посадить траву в теплице",
+        "bp": 4,
+        "type": "solo",
+        "time": "low",
+    },
+    {
+        "id": "painkiller_lab",
+        "name": "💊 Запустить переработку обезболивающих",
+        "bp": 4,
+        "type": "solo",
+        "time": "low",
+    },
+    # -------------------------------------------------------------------------
+    # Solo - Medium Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "casino_zeros",
+        "name": "👀 Нули в казино",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "construction",
+        "name": "🏗️ 25 действий на стройке",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "port",
+        "name": "⚓ 25 действий в порту",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "mine",
+        "name": "⛏️ 25 действий в шахте",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "gym",
+        "name": "💪 20 подходов в тренажерном зале",
+        "bp": 1,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "post_office",
+        "name": "📦 10 посылок на почте",
+        "bp": 1,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "farm",
+        "name": "🌾 10 действий на ферме",
+        "bp": 1,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "trucker",
+        "name": "🚛 Выполнить 3 заказа дальнобойщиком",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "club_quests",
+        "name": "🎫 Выполнить 2 квеста любых клубов",
+        "bp": 4,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "bus",
+        "name": "🚌 2 круга на любом маршруте автобусника",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "graffiti",
+        "name": "🎨 7 закрашенных граффити",
+        "bp": 1,
+        "type": "solo",
+        "time": "medium",
+    },
+    {
+        "id": "contraband",
+        "name": "📦 Сдать 5 контрабанды",
+        "bp": 2,
+        "type": "solo",
+        "time": "medium",
+    },
+    # -------------------------------------------------------------------------
+    # Solo - High Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "online_3h",
+        "name": "🕒 3 часа в онлайне",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "firefighter",
+        "name": '🔥 Потушить 25 "огоньков" пожарным',
+        "bp": 1,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "treasure",
+        "name": "🏺 Выкопать 1 сокровище (не хлам)",
+        "bp": 1,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "lockpicking",
+        "name": "🔓 Взломать 15 замков",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "airdrops",
+        "name": "🪂 Принять участие в двух Airdrop",
+        "bp": 4,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "vehicle_registration",
+        "name": "🚗 Поставить на учет 2 автомобиля",
+        "bp": 1,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "arrest",
+        "name": "👮 Произвести 1 арест в КПЗ",
+        "bp": 1,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "bail_out",
+        "name": "⚖️ Выкупить двух человек из КПЗ",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "medcards",
+        "name": "💳 5 выданных медкарт в EMS",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "ems_calls",
+        "name": "🚑 Закрыть 15 вызовов в EMS",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "wn_ads",
+        "name": "📰 Отредактировать 40 объявлений в WN",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "codes",
+        "name": "🚨 Закрыть 5 кодов в силовых структурах",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    {
+        "id": "hunting",
+        "name": "🐻 5 раз снять 100% шкуру с животных",
+        "bp": 2,
+        "type": "solo",
+        "time": "high",
+    },
+    # =========================================================================
+    # PAIR ACTIVITIES
+    # =========================================================================
+    # -------------------------------------------------------------------------
+    # Pair - Low Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "karting",
+        "name": "🏎️ Выиграть гонку в картинге",
+        "bp": 1,
+        "type": "pair",
+        "time": "low",
+    },
+    {
+        "id": "street_race",
+        "name": "🏁 Проехать 1 уличную гонку",
+        "bp": 1,
+        "type": "pair",
+        "time": "low",
+    },
+    {
+        "id": "arena",
+        "name": "🎮 Выиграть 3 любых игры на арене",
+        "bp": 1,
+        "type": "pair",
+        "time": "low",
+    },
+    {
+        "id": "armwrestling",
+        "name": "💪 Победить в армрестлинге",
+        "bp": 1,
+        "type": "pair",
+        "time": "low",
+    },
+    {
+        "id": "casino_mafia",
+        "name": "🎭 Сыграть в мафию в казино",
+        "bp": 3,
+        "type": "pair",
+        "time": "low",
+    },
+    {
+        "id": "car_repair_other",
+        "name": "🔧 Починить деталь авто другого игрока",
+        "bp": 4,
+        "type": "pair",
+        "time": "low",
+    },
+    # -------------------------------------------------------------------------
+    # Pair - Medium Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "dance_battle",
+        "name": "💃 3 победы в Дэнс Баттлах",
+        "bp": 2,
+        "type": "pair",
+        "time": "medium",
+    },
+    {
+        "id": "training_complex",
+        "name": "🏋️ Выиграть 5 игр в тренировочном комплексе",
+        "bp": 1,
+        "type": "pair",
+        "time": "medium",
+    },
+    # -------------------------------------------------------------------------
+    # Pair - High Time
+    # -------------------------------------------------------------------------
+    {
+        "id": "capts_bizwars",
+        "name": "⚔️ Участие в каптах/бизварах",
+        "bp": 1,
+        "type": "pair",
+        "time": "high",
+    },
+    {
+        "id": "hummer_vzh",
+        "name": "🚙 Сдать Хаммер с ВЗХ",
+        "bp": 3,
+        "type": "pair",
+        "time": "high",
+    },
+]
+
+# =============================================================================
+# Caching and Lookup Functions
+# =============================================================================
+
+_ACTIVITIES_BY_ID_CACHE: Dict[str, Activity] = {}
 
 
 def _initialize_caches() -> None:
     """Initialize caches for fast activity lookups."""
-    global _ALL_ACTIVITIES_CACHE, _ACTIVITIES_BY_ID_CACHE
-
-    _ALL_ACTIVITIES_CACHE = []
-    for category_activities in ACTIVITIES.values():
-        _ALL_ACTIVITIES_CACHE.extend(category_activities)
-
-    # O(1) lookup dictionary
-    _ACTIVITIES_BY_ID_CACHE = {
-        activity["id"]: activity for activity in _ALL_ACTIVITIES_CACHE
-    }
+    global _ACTIVITIES_BY_ID_CACHE
+    _ACTIVITIES_BY_ID_CACHE = {activity["id"]: activity for activity in ACTIVITIES}
 
 
 _initialize_caches()
 
-TOTAL_ACTIVITIES = len(_ALL_ACTIVITIES_CACHE)
+TOTAL_ACTIVITIES = len(ACTIVITIES)
 
 
 def get_all_activities() -> List[Activity]:
-    """Get flat list of all activities (cached). O(1)"""
-    return _ALL_ACTIVITIES_CACHE
+    """Get list of all activities. O(1)"""
+    return ACTIVITIES
 
 
 def get_activity_by_id(activity_id: str) -> Optional[Activity]:

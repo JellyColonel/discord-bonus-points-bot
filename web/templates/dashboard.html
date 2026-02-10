@@ -4,158 +4,134 @@
 
 {% block content %}
 <div class="dashboard">
-    <!-- Stats Header -->
-    <div class="stats-header">
-        <div class="stat-card">
-            <div class="stat-icon">💰</div>
-            <h3>Баланс (BP)</h3>
-            <p class="stat-value" id="balance-display">{{ balance }}</p>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <h3>Прогресс</h3>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
+    <!-- Compact Control Panel (Stats + Search + Filters) -->
+    <div class="control-panel">
+        <!-- Row 1: Stats -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-icon">💰</span>
+                <span class="stat-label">Баланс</span>
+                <span class="stat-value" id="balance-display">{{ balance }}</span>
+                <span class="stat-unit">BP</span>
             </div>
-            <p class="stat-value">{{ completed_count }} / {{ total_activities }}</p>
-        </div>
 
-        <div class="stat-card">
-            <div class="stat-icon">✨</div>
-            <h3>Заработано Сегодня (BP)</h3>
-            <p class="stat-value earned" id="earned-display">{{ total_earned }}</p>
-        </div>
+            <div class="stat-divider"></div>
 
-        <div class="stat-card">
-            <div class="stat-icon">🎯</div>
-            <h3>Осталось (BP)</h3>
-            <p class="stat-value remaining" id="remaining-display">{{ total_remaining }}</p>
-        </div>
-    </div>
-
-    <!-- Status Badges & Controls -->
-    <div class="status-and-controls">
-        <div class="status-badges-inline">
-            <div class="badge {% if vip_status %}badge-vip{% else %}badge-inactive{% endif %}" id="vip-badge" onclick="toggleVIP()" title="Нажмите для переключения VIP статуса">
-                {% if vip_status %}⭐ VIP Активен{% else %}VIP Неактивен{% endif %}
-            </div>
-            <div class="badge {% if event_active %}badge-event{% else %}badge-inactive{% endif %}" id="event-badge" onclick="toggleEvent()" title="Нажмите для переключения x2 события">
-                {% if event_active %}🎉 x2 BP Активно{% else %}x2 BP Неактивно{% endif %}
-            </div>
-        </div>
-
-        <div class="balance-control-inline">
-            <label for="balance-input">Установить Баланс:</label>
-            <input type="number" id="balance-input" placeholder="Введите сумму" min="0" max="1000000">
-            <button onclick="setBalance()" class="btn btn-primary">Обновить</button>
-        </div>
-    </div>
-
-    <!-- Search Box -->
-    <div class="search-container">
-        <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text"
-                   id="activity-search"
-                   placeholder="Поиск активностей..."
-                   autocomplete="off">
-            <button class="search-clear" id="search-clear" style="display: none;">✕</button>
-        </div>
-        <div class="search-results-count" id="search-results-count" style="display: none;">
-            <span id="search-count">0</span> результатов найдено
-        </div>
-    </div>
-
-    <!-- Activity Tabs -->
-    <div class="activity-tabs">
-        <button class="tab-btn active" onclick="switchTab('active')" data-tab="active">
-            ✨ Активные Задания
-            <span class="tab-count" id="active-count">{{ total_activities - completed_count }}</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('completed')" data-tab="completed">
-            ✅ Завершённые
-            <span class="tab-count" id="completed-count">{{ completed_count }}</span>
-        </button>
-    </div>
-
-    <!-- Активные Задания Tab -->
-    <div class="tab-content active" id="active-tab">
-        {% for category, category_activities in activities.items() %}
-        {% set active_activities = category_activities | selectattr('completed', 'equalto', False) | list %}
-        {% if active_activities %}
-        <div class="activity-category" data-category="{{ category }}">
-            <h2 class="category-title">{{ category }}</h2>
-            <div class="activity-grid">
-                {% for activity in active_activities %}
-                <div class="activity-card"
-                     data-activity-id="{{ activity.id }}"
-                     data-category="{{ category }}">
-                    <div class="activity-header">
-                        <input type="checkbox"
-                               id="activity-{{ activity.id }}"
-                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
-                        <label for="activity-{{ activity.id }}">
-                            {{ activity.name }}
-                        </label>
+            <div class="stat-item stat-item-progress">
+                <span class="stat-icon">📊</span>
+                <span class="stat-label">Прогресс</span>
+                <div class="progress-inline">
+                    <div class="progress-bar-mini">
+                        <div class="progress-fill" id="progress-fill" style="width: {{ progress_percentage }}%"></div>
                     </div>
-                    <div class="activity-bp">
-                        <span class="bp-value">{{ activity.bp_value }} BP</span>
-                    </div>
+                    <span class="stat-value"><span id="completed-count">{{ completed_count }}</span>/<span id="total-count">{{ total_activities }}</span></span>
                 </div>
-                {% endfor %}
+            </div>
+
+            <div class="stat-divider"></div>
+
+            <div class="stat-item">
+                <span class="stat-icon">✨</span>
+                <span class="stat-label">Сегодня</span>
+                <span class="stat-value stat-earned" id="earned-display">+{{ total_earned }}</span>
+                <span class="stat-unit">BP</span>
+            </div>
+
+            <div class="stat-divider"></div>
+
+            <div class="stat-item">
+                <span class="stat-icon">🎯</span>
+                <span class="stat-label">Осталось</span>
+                <span class="stat-value stat-remaining" id="remaining-display">{{ total_remaining }}</span>
+                <span class="stat-unit">BP</span>
             </div>
         </div>
-        {% endif %}
-        {% endfor %}
 
-        {% if completed_count == total_activities %}
-        <div class="empty-state">
-            <div class="empty-icon">🎉</div>
-            <h3>All Activities Завершённые!</h3>
-            <p>Great job! Check the Завершённые tab to review or uncheck activities.</p>
+        <!-- Row 2: Search + Filters -->
+        <div class="search-row">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text"
+                       id="activity-search"
+                       placeholder="Поиск активностей..."
+                       autocomplete="off">
+                <button class="search-clear" id="search-clear" style="display: none;">✕</button>
+            </div>
+
+            <div class="filters-inline">
+                <div class="filter-group">
+                    <label for="filter-type">Тип:</label>
+                    <select id="filter-type" class="filter-select">
+                        <option value="all">Все</option>
+                        <option value="solo">Одиночные</option>
+                        <option value="pair">Парные</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filter-time">Время выполнения:</label>
+                    <select id="filter-time" class="filter-select">
+                        <option value="all">Все</option>
+                        <option value="low">Быстро</option>
+                        <option value="medium">Средне</option>
+                        <option value="high">Долго</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-secondary btn-reset-filters" id="reset-filters" style="display: none;">
+                    Сбросить
+                </button>
+            </div>
+
+            <div class="filter-results-count" id="filter-results-count">
+                <span id="visible-count">{{ activities|length }}</span> из <span id="filtered-total">{{ activities|length }}</span>
+            </div>
         </div>
-        {% endif %}
     </div>
 
-    <!-- Завершённые Activities Tab -->
-    <div class="tab-content" id="completed-tab">
-        {% for category, category_activities in activities.items() %}
-        {% set completed_activities = category_activities | selectattr('completed', 'equalto', True) | list %}
-        {% if completed_activities %}
-        <div class="activity-category" data-category="{{ category }}">
-            <h2 class="category-title">{{ category }}</h2>
-            <div class="activity-grid">
-                {% for activity in completed_activities %}
-                <div class="activity-card completed"
-                     data-activity-id="{{ activity.id }}"
-                     data-category="{{ category }}">
-                    <div class="activity-header">
-                        <input type="checkbox"
-                               id="activity-completed-{{ activity.id }}"
-                               checked
-                               onchange="toggleActivity('{{ activity.id }}', this.checked)">
-                        <label for="activity-completed-{{ activity.id }}">
-                            {{ activity.name }}
-                        </label>
-                    </div>
-                    <div class="activity-bp">
-                        <span class="bp-value">{{ activity.bp_value }} BP</span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+    <!-- Activities Tabs -->
+    <div class="activities-container">
+        <div class="tabs-header">
+            <button class="tab-btn active" data-tab="active" id="tab-active">
+                🎯 Активные <span class="tab-count" id="active-count">0</span>
+            </button>
+            <button class="tab-btn" data-tab="completed" id="tab-completed">
+                ✅ Выполненные <span class="tab-count" id="completed-tab-count">0</span>
+            </button>
         </div>
-        {% endif %}
-        {% endfor %}
 
-        {% if completed_count == 0 %}
-        <div class="empty-state">
-            <div class="empty-icon">🔍</div>
-            <h3>Пока нет завершённых активностей</h3>
-            <p>Начните отмечать активности, чтобы увидеть их здесь!</p>
+        <div class="activity-grid" id="activity-grid">
+            {% for activity in activities %}
+            <div class="activity-card {% if activity.completed %}completed{% endif %}"
+                 data-activity-id="{{ activity.id }}"
+                 data-name="{{ activity.name | lower }}"
+                 data-type="{{ activity.type }}"
+                 data-time="{{ activity.time }}"
+                 data-bp="{{ activity.bp_value }}"
+                 data-completed="{{ 'true' if activity.completed else 'false' }}">
+                <div class="activity-header">
+                    <input type="checkbox"
+                           id="activity-{{ activity.id }}"
+                           {% if activity.completed %}checked{% endif %}
+                           onchange="toggleActivity('{{ activity.id }}', this.checked)">
+                    <label for="activity-{{ activity.id }}">
+                        {{ activity.name }}
+                    </label>
+                </div>
+                <div class="activity-bp">
+                    <span class="bp-value">{{ activity.bp_value }} BP</span>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endif %}
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" style="display: none;">
+            <div class="empty-icon" id="empty-icon">🔍</div>
+            <h3 id="empty-title">Нет активностей</h3>
+            <p id="empty-description">Попробуйте изменить фильтры или сбросить их</p>
+            <button class="btn btn-primary" id="empty-action" onclick="resetFilters()">Сбросить фильтры</button>
+        </div>
     </div>
 
     <!-- Loading Overlay -->
