@@ -583,6 +583,19 @@ async function repeatActivity(activityId, action) {
             }
         }
 
+        // Update add button state (max completions cap)
+        const addBtn = card.querySelector('.repeat-btn-add');
+        if (addBtn) {
+            const maxCompletions = data.max_completions || parseInt(card.getAttribute('data-max-completions'));
+            if (maxCompletions && count >= maxCompletions) {
+                addBtn.disabled = true;
+                addBtn.classList.add('disabled');
+            } else {
+                addBtn.disabled = false;
+                addBtn.classList.remove('disabled');
+            }
+        }
+
         // Update timestamp
         const tsEl = card.querySelector('.activity-timestamp');
         if (tsEl) {
