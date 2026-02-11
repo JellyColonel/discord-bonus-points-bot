@@ -6,3 +6,13 @@ __pycache__
 data/
 logs/
 .claude/
+tests/
+*.md
+!requirements*.txt
+pyproject.toml
+requirements-dev.txt
+folder_structure.py
+folder_structure_*.txt
+.pytest_cache/
+.ruff_cache/
+nul

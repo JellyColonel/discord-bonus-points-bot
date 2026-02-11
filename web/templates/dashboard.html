@@ -50,11 +50,12 @@
         <!-- Row 2: Search + Filters -->
         <div class="search-row">
             <div class="search-box">
-                <span class="search-icon">🔍</span>
+                <span class="search-icon" aria-hidden="true">🔍</span>
                 <input type="text"
                        id="activity-search"
                        placeholder="Поиск активностей..."
-                       autocomplete="off">
+                       autocomplete="off"
+                       aria-label="Поиск активностей">
                 <button class="search-clear" id="search-clear" style="display: none;">✕</button>
             </div>
 
@@ -137,10 +138,12 @@
                 <div class="repeat-controls">
                     <button class="repeat-btn repeat-btn-remove{% if activity.repeat_count|default(0) == 0 %} disabled{% endif %}"
                             onclick="repeatActivity('{{ activity.id }}', 'remove')"
-                            {% if activity.repeat_count|default(0) == 0 %}disabled{% endif %}>-</button>
+                            {% if activity.repeat_count|default(0) == 0 %}disabled{% endif %}
+                            aria-label="Убрать выполнение">-</button>
                     <span class="repeat-count">{{ activity.repeat_count|default(0) }}</span>
                     <button class="repeat-btn repeat-btn-add"
-                            onclick="repeatActivity('{{ activity.id }}', 'add')">+</button>
+                            onclick="repeatActivity('{{ activity.id }}', 'add')"
+                            aria-label="Добавить выполнение">+</button>
                 </div>
                 <div class="activity-bp">
                     {% if activity.repeat_count|default(0) > 0 %}

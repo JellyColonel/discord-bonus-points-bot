@@ -849,7 +849,3 @@ def get_today_date() -> str:
     return date
 
 
-def get_actual_date() -> str:
-    """Get the actual calendar date in UTC."""
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return date
