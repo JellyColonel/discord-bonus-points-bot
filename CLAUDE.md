@@ -115,6 +115,7 @@ Fields:
 - Always add labels when creating PRs (available: `feature`, `bugfix`, `docs`, `cleanup`, `security`, `ux`, `accessibility`, `infrastructure`)
 - Split large changes into multiple focused PRs (1-2 labels each, reviewable in a few minutes). Don't combine unrelated categories (e.g. security + accessibility) in one PR.
 - Merge PRs using squash and merge (`gh pr merge --squash`)
+- Always assign @JellyColonel when creating PRs (`--assignee JellyColonel`)
 
 ## Planned Features
 
