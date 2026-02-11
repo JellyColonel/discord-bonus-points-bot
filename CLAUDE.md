@@ -123,3 +123,4 @@ Fields:
 2. **Returning-user reminder flow.** If a user hasn't logged in for 2+ weeks, show a shorter reminder to review/update their BP balance, VIP, and event status.
 3. **Daily completion history (maybe).** Show a per-day log of completed activities — potentially a simple history view or timeline.
 4. **Recipes page.** A new section with in-game recipes and step-by-step instructions, preferably with pictures. Not directly BP-related — this could evolve the app from a BP tracker into a broader companion tool for the group.
+5. **Global CLAUDE.md sync.** Create a private git repo for `~/.claude/CLAUDE.md` (and other config), symlink on each machine. Keeps global instructions portable across PCs.
