@@ -45,8 +45,8 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/bonus_points_web.git
-   cd bonus_points_web
+   git clone https://github.com/JellyColonel/discord-bonus-points-bot.git
+   cd discord-bonus-points-bot
    ```
 
 2. **Create virtual environment**
@@ -267,9 +267,9 @@ The dashboard tracks your total BP balance persistently:
 
 ## Event System
 
-Administrators can enable x2 BP events that double all rewards. Events persist across restarts and are stored in the database.
+Each user can toggle their own x2 BP event via the Settings page. Events are per-user (not global) and persist across restarts in the database.
 
-To toggle events, use the API endpoint:
+To toggle events programmatically:
 ```bash
 POST /api/toggle_event
 Body: {"event_status": true}

@@ -11,10 +11,12 @@ from web.database import get_today_date
 from web.helpers import (
     calculate_bp,
     get_hidden_activity_ids,
+    is_activity_visible,
     is_event_active,
     rate_limit,
 )
 from web.validation import (
+    MAX_BALANCE,
     api_error,
     api_success,
     validate_activity_id,
@@ -63,6 +65,10 @@ def toggle_activity() -> Response | tuple[Response, int]:
     activity = get_activity_by_id(activity_id)
     if not activity:
         return api_error("Activity not found", 404)
+
+    hidden_ids = get_hidden_activity_ids(db, user_id)
+    if not is_activity_visible(activity, hidden_ids):
+        return api_error("Activity is hidden")
 
     try:
         today = get_today_date()
@@ -134,6 +140,10 @@ def repeatable_activity() -> Response | tuple[Response, int]:
 
     if not is_repeatable(activity_id):
         return api_error("Activity is not repeatable")
+
+    hidden_ids = get_hidden_activity_ids(db, user_id)
+    if not is_activity_visible(activity, hidden_ids):
+        return api_error("Activity is hidden")
 
     try:
         today = get_today_date()
@@ -209,7 +219,7 @@ def set_balance() -> Response | tuple[Response, int]:
         return api_error("Missing request body")
 
     is_valid, amount, error_msg = validate_integer(
-        data.get("amount"), "amount", min_val=0, max_val=1000000
+        data.get("amount"), "amount", min_val=0, max_val=MAX_BALANCE
     )
     if not is_valid:
         return api_error(error_msg)

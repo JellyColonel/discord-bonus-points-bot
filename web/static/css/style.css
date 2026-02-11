@@ -758,8 +758,8 @@ body {
 }
 
 .repeat-btn {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: none;
     font-size: 18px;
@@ -968,56 +968,6 @@ body {
 .balance-control input[type=number] {
     -moz-appearance: textfield;
     appearance: textfield;
-}
-
-/* Categories Grid */
-.categories-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-}
-
-.category-card {
-    background: var(--surface-light);
-    border-radius: 10px;
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    border: 2px solid transparent;
-    transition: all 0.2s ease;
-}
-
-.category-card:hover {
-    border-color: var(--border);
-}
-
-.category-card.hidden-item {
-    opacity: 0.6;
-    background: var(--surface);
-}
-
-.category-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.category-name {
-    font-weight: 600;
-    font-size: 15px;
-}
-
-.category-count {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.category-description {
-    font-size: 12px;
-    color: var(--text-secondary);
-    opacity: 0.8;
 }
 
 /* Activities List (Settings page) */
@@ -1289,20 +1239,6 @@ body {
 
     .login-card {
         padding: 32px 24px;
-    }
-
-    .categories-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .category-card {
-        flex-direction: column;
-        align-items: stretch;
-        text-align: center;
-    }
-
-    .category-card .btn {
-        width: 100%;
     }
 
     /* Settings page responsive */

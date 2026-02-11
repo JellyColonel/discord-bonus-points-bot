@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from flask import Flask
+from flask import Flask, render_template
 from flask_wtf.csrf import CSRFProtect
 
 from flask_session import Session
@@ -31,6 +31,16 @@ app.register_blueprint(api_bp)
 
 # Register middleware (logging, session refresh)
 register_middleware(app)
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("errors/404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template("errors/500.html"), 500
 
 
 @app.teardown_appcontext

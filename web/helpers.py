@@ -90,10 +90,11 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Get user ID from session (fallback to "anonymous" if not logged in)
+            # Key by user ID + endpoint name so limits are independent
             user_id = str(session.get("user", {}).get("id", "anonymous"))
+            rate_key = f"{user_id}:{f.__name__}"
 
-            if _is_rate_limited(user_id, max_requests, window_seconds):
+            if _is_rate_limited(rate_key, max_requests, window_seconds):
                 return jsonify(
                     {
                         "success": False,
@@ -101,7 +102,7 @@ def rate_limit(max_requests: int = 30, window_seconds: int = 60) -> Callable:
                     }
                 ), 429
 
-            _record_request(user_id)
+            _record_request(rate_key)
             return f(*args, **kwargs)
 
         return decorated_function
@@ -113,10 +114,10 @@ def get_rate_limit_stats() -> Dict[str, int]:
     """Get current rate limit statistics (for debugging).
 
     Returns:
-        Dictionary mapping user IDs to their current request count
+        Dictionary mapping rate keys (user_id:endpoint) to their current request count
     """
     return {
-        user_id: len(timestamps) for user_id, timestamps in _rate_limit_store.items()
+        key: len(timestamps) for key, timestamps in _rate_limit_store.items()
     }
 
 
@@ -142,12 +143,12 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
     """Calculate BP for an activity considering VIP and event status.
 
     Args:
-        activity: Activity dictionary with 'bp' and 'bp_vip' keys
-        vip_status: Boolean indicating if user has VIP
-        event_active: Boolean indicating if x2 BP event is active
+        activity: Activity dictionary with 'bp' key (base reward)
+        vip_status: Whether user has VIP (2x multiplier)
+        event_active: Whether x2 BP event is active (2x multiplier)
 
     Returns:
-        Calculated BP amount
+        Calculated BP amount (base * vip_multiplier * event_multiplier)
     """
     base_bp = activity["bp"]
     vip_multiplier = 2 if vip_status else 1

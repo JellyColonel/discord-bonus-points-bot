@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from flask import Response, jsonify
 
+MAX_BALANCE = 1_000_000
+
 
 def api_success(**data: Any) -> Response:
     """Return a standardized API success response."""

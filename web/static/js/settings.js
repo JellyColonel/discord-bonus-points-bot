@@ -2,7 +2,7 @@
 // Settings Page JavaScript
 // =================================================================
 // Shared utilities (isLoading, getCsrfToken, showLoading,
-// hideLoading, showToast) are loaded from common.js
+// hideLoading, showToast, apiCall, debounce) are loaded from common.js
 
 // =================================================================
 // VIP & Event Functions
@@ -12,100 +12,56 @@
  * Toggle the user's VIP status via API.
  */
 async function toggleVIP() {
-    if (isLoading) return;
-
-    showLoading();
-
     const vipBadge = document.getElementById('vip-badge');
+    const currentVIP = vipBadge.classList.contains('badge-vip');
+
     vipBadge.style.pointerEvents = 'none';
 
-    try {
-        const currentVIP = vipBadge.classList.contains('badge-vip');
-        const newVIP = !currentVIP;
+    const data = await apiCall('/api/toggle_vip', { vip_status: !currentVIP });
 
-        const response = await fetch('/api/toggle_vip', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({ vip_status: newVIP })
-        });
+    vipBadge.style.pointerEvents = 'auto';
 
-        const data = await response.json();
+    if (!data) return;
 
-        if (data.success) {
-            if (data.vip_status) {
-                vipBadge.classList.remove('badge-inactive');
-                vipBadge.classList.add('badge-vip');
-                vipBadge.innerHTML = '&#11088; Активен';
-            } else {
-                vipBadge.classList.remove('badge-vip');
-                vipBadge.classList.add('badge-inactive');
-                vipBadge.textContent = 'Неактивен';
-            }
-
-            showToast('VIP статус ' + (data.vip_status ? 'активирован' : 'деактивирован'), 'success');
-        } else {
-            throw new Error(data.error || 'Unknown error');
-        }
-    } catch (error) {
-        console.error('Error toggling VIP:', error);
-        showToast('Не удалось изменить VIP статус', 'error');
-    } finally {
-        hideLoading();
-        vipBadge.style.pointerEvents = 'auto';
+    if (data.vip_status) {
+        vipBadge.classList.remove('badge-inactive');
+        vipBadge.classList.add('badge-vip');
+        vipBadge.innerHTML = '&#11088; Активен';
+    } else {
+        vipBadge.classList.remove('badge-vip');
+        vipBadge.classList.add('badge-inactive');
+        vipBadge.textContent = 'Неактивен';
     }
+
+    showToast('VIP статус ' + (data.vip_status ? 'активирован' : 'деактивирован'), 'success');
 }
 
 /**
  * Toggle the user's x2 event status via API.
  */
 async function toggleEvent() {
-    if (isLoading) return;
-
-    showLoading();
-
     const eventBadge = document.getElementById('event-badge');
+    const currentEvent = eventBadge.classList.contains('badge-event');
+
     eventBadge.style.pointerEvents = 'none';
 
-    try {
-        const currentEvent = eventBadge.classList.contains('badge-event');
-        const newEvent = !currentEvent;
+    const data = await apiCall('/api/toggle_event', { event_status: !currentEvent });
 
-        const response = await fetch('/api/toggle_event', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({ event_status: newEvent })
-        });
+    eventBadge.style.pointerEvents = 'auto';
 
-        const data = await response.json();
+    if (!data) return;
 
-        if (data.success) {
-            if (data.event_status) {
-                eventBadge.classList.remove('badge-inactive');
-                eventBadge.classList.add('badge-event');
-                eventBadge.innerHTML = '&#127881; Активно';
-            } else {
-                eventBadge.classList.remove('badge-event');
-                eventBadge.classList.add('badge-inactive');
-                eventBadge.textContent = 'Неактивно';
-            }
-
-            showToast('x2 событие ' + (data.event_status ? 'активировано' : 'деактивировано'), 'success');
-        } else {
-            throw new Error(data.error || 'Unknown error');
-        }
-    } catch (error) {
-        console.error('Error toggling event:', error);
-        showToast('Не удалось изменить статус события', 'error');
-    } finally {
-        hideLoading();
-        eventBadge.style.pointerEvents = 'auto';
+    if (data.event_status) {
+        eventBadge.classList.remove('badge-inactive');
+        eventBadge.classList.add('badge-event');
+        eventBadge.innerHTML = '&#127881; Активно';
+    } else {
+        eventBadge.classList.remove('badge-event');
+        eventBadge.classList.add('badge-inactive');
+        eventBadge.textContent = 'Неактивно';
     }
+
+    showToast('x2 событие ' + (data.event_status ? 'активировано' : 'деактивировано'), 'success');
 }
 
 // =================================================================
@@ -116,8 +72,6 @@ async function toggleEvent() {
  * Set the user's BP balance via API.
  */
 async function setBalance() {
-    if (isLoading) return;
-
     const input = document.getElementById('balance-input');
     const amount = parseInt(input.value);
 
@@ -126,38 +80,19 @@ async function setBalance() {
         return;
     }
 
-    if (amount > 1000000) {
-        showToast('Сумма не может превышать 1,000,000 BP', 'error');
+    const maxBalance = parseInt(document.getElementById('balance-input').dataset.max) || 1000000;
+    if (amount > maxBalance) {
+        showToast(`Сумма не может превышать ${maxBalance.toLocaleString('ru-RU')} BP`, 'error');
         return;
     }
 
-    showLoading();
+    const data = await apiCall('/api/set_balance', { amount: amount });
 
-    try {
-        const response = await fetch('/api/set_balance', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({ amount: amount })
-        });
+    if (!data) return;
 
-        const data = await response.json();
-
-        if (data.success) {
-            document.getElementById('current-balance').textContent = data.new_balance;
-            input.value = '';
-            showToast('Баланс обновлён до ' + data.new_balance + ' BP', 'success');
-        } else {
-            throw new Error(data.error || 'Unknown error');
-        }
-    } catch (error) {
-        console.error('Error setting balance:', error);
-        showToast('Не удалось обновить баланс', 'error');
-    } finally {
-        hideLoading();
-    }
+    document.getElementById('current-balance').textContent = data.new_balance;
+    input.value = '';
+    showToast('Баланс обновлён до ' + data.new_balance + ' BP', 'success');
 }
 
 // =================================================================
@@ -168,36 +103,18 @@ async function setBalance() {
  * Reset all of today's activity completions via API.
  */
 async function resetTodayActivities() {
-    if (isLoading) return;
-
     if (!confirm('Вы уверены? Все отметки о выполнении за сегодня будут удалены. Баланс BP не изменится.')) {
         return;
     }
 
-    showLoading();
+    const data = await apiCall('/api/reset_today_activities');
 
-    try {
-        const response = await fetch('/api/reset_today_activities', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            }
-        });
+    if (!data) return;
 
-        const data = await response.json();
+    showToast(`Сброшено активностей: ${data.deleted_count}. Баланс: ${data.balance} BP`, 'success');
 
-        if (data.success) {
-            showToast(`Сброшено активностей: ${data.deleted_count}. Баланс: ${data.balance} BP`, 'success');
-        } else {
-            throw new Error(data.error || 'Unknown error');
-        }
-    } catch (error) {
-        console.error('Error resetting activities:', error);
-        showToast('Не удалось сбросить активности', 'error');
-    } finally {
-        hideLoading();
-    }
+    // Brief delay to let the user see the toast, then reload
+    setTimeout(() => window.location.reload(), 1000);
 }
 
 // =================================================================
@@ -210,52 +127,30 @@ async function resetTodayActivities() {
  * @param {boolean} currentlyHidden - Whether the activity is currently hidden
  */
 async function toggleActivityVisibility(activityId, currentlyHidden) {
-    if (isLoading) return;
-
-    showLoading();
-
     const endpoint = currentlyHidden ? '/api/unhide_activity' : '/api/hide_activity';
 
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({ activity_id: activityId })
-        });
+    const data = await apiCall(endpoint, { activity_id: activityId });
 
-        const data = await response.json();
+    if (!data) return;
 
-        if (data.success) {
-            const item = document.querySelector('.activity-item[data-activity-id="' + activityId + '"]');
-            const button = item.querySelector('button');
+    const item = document.querySelector('.activity-item[data-activity-id="' + activityId + '"]');
+    const button = item.querySelector('button');
 
-            if (data.hidden) {
-                item.classList.add('hidden-item');
-                button.classList.remove('btn-hide');
-                button.classList.add('btn-show');
-                button.textContent = 'Показать';
-                button.onclick = () => toggleActivityVisibility(activityId, true);
-            } else {
-                item.classList.remove('hidden-item');
-                button.classList.remove('btn-show');
-                button.classList.add('btn-hide');
-                button.textContent = 'Скрыть';
-                button.onclick = () => toggleActivityVisibility(activityId, false);
-            }
-
-            showToast('Активность ' + (data.hidden ? 'скрыта' : 'показана'), 'success');
-        } else {
-            showToast(data.error || 'Ошибка', 'error');
-        }
-    } catch (error) {
-        console.error('Error toggling activity:', error);
-        showToast('Не удалось изменить видимость активности', 'error');
-    } finally {
-        hideLoading();
+    if (data.hidden) {
+        item.classList.add('hidden-item');
+        button.classList.remove('btn-hide');
+        button.classList.add('btn-show');
+        button.textContent = 'Показать';
+        button.onclick = () => toggleActivityVisibility(activityId, true);
+    } else {
+        item.classList.remove('hidden-item');
+        button.classList.remove('btn-show');
+        button.classList.add('btn-hide');
+        button.textContent = 'Скрыть';
+        button.onclick = () => toggleActivityVisibility(activityId, false);
     }
+
+    showToast('Активность ' + (data.hidden ? 'скрыта' : 'показана'), 'success');
 }
 
 /**

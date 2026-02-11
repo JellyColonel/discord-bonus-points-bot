@@ -33,5 +33,15 @@ logs/
 .DS_Store
 Thumbs.db
 
-# File structure 
+# File structure
 folder_structure_*.txt
+
+# Claude Code
+.claude/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Windows artifacts
+nul

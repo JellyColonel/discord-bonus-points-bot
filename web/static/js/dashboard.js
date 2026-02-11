@@ -2,7 +2,7 @@
 // Dashboard Interactivity
 // =================================================================
 // Shared utilities (isLoading, getCsrfToken, showLoading,
-// hideLoading, showToast) are loaded from common.js
+// hideLoading, showToast, apiCall, debounce) are loaded from common.js
 
 /** @type {string} Local storage key for filters */
 const FILTER_STORAGE_KEY = 'bp_dashboard_filters';
@@ -15,7 +15,7 @@ let currentTab = 'active';
 // =================================================================
 
 /**
- * Format a UTC ISO timestamp to local "в HH:MM" string.
+ * Format a UTC ISO timestamp to local "\u0432 HH:MM" string.
  * @param {string} utcTimestamp - UTC ISO timestamp
  * @returns {string} Formatted time string or empty string
  */
@@ -38,29 +38,6 @@ function initializeTimestamps() {
             el.style.display = '';
         }
     });
-}
-
-// =================================================================
-// Utility Functions
-// =================================================================
-
-/**
- * Creates a debounced version of a function that delays execution
- * until after the specified wait time has elapsed since the last call.
- * @param {Function} func - The function to debounce
- * @param {number} wait - The delay in milliseconds
- * @returns {Function} The debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
 }
 
 // =================================================================
@@ -143,7 +120,6 @@ function applyFilters() {
     let visibleCount = 0;
     let activeCount = 0;
     let completedCount = 0;
-    const totalCount = cards.length;
 
     cards.forEach(card => {
         const cardType = card.getAttribute('data-type');
@@ -225,13 +201,13 @@ function applyFilters() {
         if (tabTotal === 0) {
             // No activities in this tab at all
             if (currentTab === 'active') {
-                emptyIcon.textContent = '🎉';
+                emptyIcon.textContent = '\uD83C\uDF89';
                 emptyTitle.textContent = 'Все активности выполнены!';
                 emptyDescription.textContent = 'Отличная работа! Посмотрите выполненные во вкладке "Выполненные"';
                 emptyAction.textContent = 'Выполненные';
                 emptyAction.onclick = () => switchTab('completed');
             } else {
-                emptyIcon.textContent = '📋';
+                emptyIcon.textContent = '\uD83D\uDCCB';
                 emptyTitle.textContent = 'Нет выполненных активностей';
                 emptyDescription.textContent = 'Выполненные активности появятся здесь';
                 emptyAction.textContent = 'К активным';
@@ -239,7 +215,7 @@ function applyFilters() {
             }
         } else {
             // Filtered out
-            emptyIcon.textContent = '🔍';
+            emptyIcon.textContent = '\uD83D\uDD0D';
             emptyTitle.textContent = 'Нет активностей по фильтрам';
             emptyDescription.textContent = 'Попробуйте изменить фильтры или сбросить их';
             emptyAction.textContent = 'Сбросить фильтры';
@@ -276,18 +252,30 @@ function switchTab(tab) {
     // Re-apply filters with new tab
     applyFilters();
 
-    // Save tab preference
-    localStorage.setItem('bp_dashboard_tab', tab);
+    // Save tab preference with date
+    localStorage.setItem('bp_dashboard_tab', JSON.stringify({
+        tab: tab,
+        date: new Date().toDateString()
+    }));
 }
 
 /**
  * Initialize tab event listeners.
  */
 function initializeTabs() {
-    // Load saved tab preference
-    const savedTab = localStorage.getItem('bp_dashboard_tab');
-    if (savedTab === 'active' || savedTab === 'completed') {
-        currentTab = savedTab;
+    // Load saved tab preference (only if from today)
+    try {
+        const saved = localStorage.getItem('bp_dashboard_tab');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.date === new Date().toDateString()) {
+                if (parsed.tab === 'active' || parsed.tab === 'completed') {
+                    currentTab = parsed.tab;
+                }
+            }
+        }
+    } catch {
+        // Legacy format or corrupted — ignore
     }
 
     // Set initial active state
@@ -393,85 +381,67 @@ function initializeSearch() {
  * @param {boolean} completed - Whether the activity is now completed
  */
 async function toggleActivity(activityId, completed) {
-    if (isLoading) return;
+    const card = document.querySelector(`[data-activity-id="${activityId}"]`);
+    if (card) card.style.pointerEvents = 'none';
 
-    showLoading();
+    const data = await apiCall('/api/toggle_activity', {
+        activity_id: activityId,
+        completed: completed
+    }, { overlay: false });
 
-    try {
-        const response = await fetch('/api/toggle_activity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({
-                activity_id: activityId,
-                completed: completed
-            })
-        });
+    if (card) card.style.pointerEvents = '';
 
-        const data = await response.json();
-
-        if (data.success) {
-            // Update card state
-            const card = document.querySelector(`[data-activity-id="${activityId}"]`);
-            if (card) {
-                // Update data attribute first (needed for filtering)
-                card.setAttribute('data-completed', completed ? 'true' : 'false');
-
-                // Hide card immediately (before visual transition)
-                card.classList.add('filter-hidden');
-
-                // Update visual state (will be visible when user switches tabs)
-                if (completed) {
-                    card.classList.add('completed');
-                } else {
-                    card.classList.remove('completed');
-                }
-
-                // Update BP value display if it changed
-                const bpElement = card.querySelector('.bp-value');
-                if (bpElement && data.bp_change) {
-                    bpElement.textContent = `${Math.abs(data.bp_change)} BP`;
-                }
-
-                // Update timestamp
-                const tsEl = card.querySelector('.activity-timestamp');
-                if (tsEl) {
-                    if (completed && data.completed_at) {
-                        card.setAttribute('data-completed-at', data.completed_at);
-                        tsEl.textContent = formatCompletionTime(data.completed_at);
-                        tsEl.style.display = '';
-                    } else {
-                        card.setAttribute('data-completed-at', '');
-                        tsEl.textContent = '';
-                        tsEl.style.display = 'none';
-                    }
-                }
-            }
-
-            // Update balance display
-            document.getElementById('balance-display').textContent = data.new_balance;
-
-            // Refresh stats and tab counts
-            await refreshStats();
-            applyFilters();  // Update tab counts
-
-            showToast(
-                `Активность ${completed ? 'выполнена' : 'отменена'} (${data.bp_change > 0 ? '+' : ''}${data.bp_change} BP)`,
-                'success'
-            );
-        } else {
-            showToast(data.error || 'Не удалось обновить активность', 'error');
-            revertCheckbox(activityId, completed);
-        }
-    } catch (error) {
-        console.error('Error toggling activity:', error);
-        showToast('Не удалось обновить активность', 'error');
+    if (!data) {
         revertCheckbox(activityId, completed);
-    } finally {
-        hideLoading();
+        return;
     }
+
+    if (card) {
+        // Update data attribute first (needed for filtering)
+        card.setAttribute('data-completed', completed ? 'true' : 'false');
+
+        // Hide card immediately (before visual transition)
+        card.classList.add('filter-hidden');
+
+        // Update visual state (will be visible when user switches tabs)
+        if (completed) {
+            card.classList.add('completed');
+        } else {
+            card.classList.remove('completed');
+        }
+
+        // Update BP value display if it changed
+        const bpElement = card.querySelector('.bp-value');
+        if (bpElement && data.bp_change) {
+            bpElement.textContent = `${Math.abs(data.bp_change)} BP`;
+        }
+
+        // Update timestamp
+        const tsEl = card.querySelector('.activity-timestamp');
+        if (tsEl) {
+            if (completed && data.completed_at) {
+                card.setAttribute('data-completed-at', data.completed_at);
+                tsEl.textContent = formatCompletionTime(data.completed_at);
+                tsEl.style.display = '';
+            } else {
+                card.setAttribute('data-completed-at', '');
+                tsEl.textContent = '';
+                tsEl.style.display = 'none';
+            }
+        }
+    }
+
+    // Update balance display
+    document.getElementById('balance-display').textContent = data.new_balance;
+
+    // Refresh stats and tab counts
+    await refreshStats();
+    applyFilters();
+
+    showToast(
+        `Активность ${completed ? 'выполнена' : 'отменена'} (${data.bp_change > 0 ? '+' : ''}${data.bp_change} BP)`,
+        'success'
+    );
 }
 
 /**
@@ -496,6 +466,9 @@ function revertCheckbox(activityId, completed) {
 async function refreshStats() {
     try {
         const response = await fetch('/api/user_stats');
+
+        if (!response.ok) return;
+
         const data = await response.json();
 
         if (data.success) {
@@ -506,7 +479,7 @@ async function refreshStats() {
 
             // Update earned/remaining
             if (data.total_earned !== undefined) {
-                document.getElementById('earned-display').textContent = data.total_earned;
+                document.getElementById('earned-display').textContent = '+' + data.total_earned;
             }
             if (data.total_remaining !== undefined) {
                 document.getElementById('remaining-display').textContent = data.total_remaining;
@@ -568,89 +541,71 @@ function initializeClickableCards() {
  * @param {string} action - "add" or "remove"
  */
 async function repeatActivity(activityId, action) {
-    if (isLoading) return;
+    const card = document.querySelector(`[data-activity-id="${activityId}"]`);
+    if (card) card.style.pointerEvents = 'none';
 
-    showLoading();
+    const data = await apiCall('/api/repeatable_activity', {
+        activity_id: activityId,
+        action: action
+    }, { overlay: false });
 
-    try {
-        const response = await fetch('/api/repeatable_activity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({
-                activity_id: activityId,
-                action: action
-            })
-        });
+    if (card) card.style.pointerEvents = '';
 
-        const data = await response.json();
+    if (!data) return;
 
-        if (data.success) {
-            const card = document.querySelector(`[data-activity-id="${activityId}"]`);
-            if (card) {
-                const count = data.count;
-                card.setAttribute('data-repeat-count', count);
+    if (card) {
+        const count = data.count;
+        card.setAttribute('data-repeat-count', count);
 
-                // Update counter display
-                const countEl = card.querySelector('.repeat-count');
-                if (countEl) countEl.textContent = count;
+        // Update counter display
+        const countEl = card.querySelector('.repeat-count');
+        if (countEl) countEl.textContent = count;
 
-                // Update BP display
-                const bpEl = card.querySelector('.bp-value');
-                if (bpEl) {
-                    if (count > 0) {
-                        bpEl.textContent = `${data.total_bp} BP`;
-                    } else {
-                        bpEl.textContent = `${card.getAttribute('data-bp')} BP`;
-                    }
-                }
-
-                // Update remove button state
-                const removeBtn = card.querySelector('.repeat-btn-remove');
-                if (removeBtn) {
-                    if (count === 0) {
-                        removeBtn.disabled = true;
-                        removeBtn.classList.add('disabled');
-                    } else {
-                        removeBtn.disabled = false;
-                        removeBtn.classList.remove('disabled');
-                    }
-                }
-
-                // Update timestamp
-                const tsEl = card.querySelector('.activity-timestamp');
-                if (tsEl) {
-                    if (data.completed_at) {
-                        card.setAttribute('data-completed-at', data.completed_at);
-                        tsEl.textContent = formatCompletionTime(data.completed_at);
-                        tsEl.style.display = '';
-                    } else if (count === 0) {
-                        card.setAttribute('data-completed-at', '');
-                        tsEl.textContent = '';
-                        tsEl.style.display = 'none';
-                    }
-                }
+        // Update BP display
+        const bpEl = card.querySelector('.bp-value');
+        if (bpEl) {
+            if (count > 0) {
+                bpEl.textContent = `${data.total_bp} BP`;
+            } else {
+                bpEl.textContent = `${card.getAttribute('data-bp')} BP`;
             }
-
-            // Update balance display
-            document.getElementById('balance-display').textContent = data.new_balance;
-
-            // Refresh stats
-            await refreshStats();
-
-            const bpText = data.bp_change > 0 ? `+${data.bp_change}` : `${data.bp_change}`;
-            showToast(`${action === 'add' ? 'Выполнение добавлено' : 'Выполнение удалено'} (${bpText} BP)`, 'success');
-        } else {
-            showToast(data.error || 'Не удалось обновить активность', 'error');
         }
-    } catch (error) {
-        console.error('Error updating repeatable activity:', error);
-        showToast('Не удалось обновить активность', 'error');
-    } finally {
-        hideLoading();
+
+        // Update remove button state
+        const removeBtn = card.querySelector('.repeat-btn-remove');
+        if (removeBtn) {
+            if (count === 0) {
+                removeBtn.disabled = true;
+                removeBtn.classList.add('disabled');
+            } else {
+                removeBtn.disabled = false;
+                removeBtn.classList.remove('disabled');
+            }
+        }
+
+        // Update timestamp
+        const tsEl = card.querySelector('.activity-timestamp');
+        if (tsEl) {
+            if (data.completed_at) {
+                card.setAttribute('data-completed-at', data.completed_at);
+                tsEl.textContent = formatCompletionTime(data.completed_at);
+                tsEl.style.display = '';
+            } else if (count === 0) {
+                card.setAttribute('data-completed-at', '');
+                tsEl.textContent = '';
+                tsEl.style.display = 'none';
+            }
+        }
     }
+
+    // Update balance display
+    document.getElementById('balance-display').textContent = data.new_balance;
+
+    // Refresh stats
+    await refreshStats();
+
+    const bpText = data.bp_change > 0 ? `+${data.bp_change}` : `${data.bp_change}`;
+    showToast(`${action === 'add' ? 'Выполнение добавлено' : 'Выполнение удалено'} (${bpText} BP)`, 'success');
 }
 
 // =================================================================

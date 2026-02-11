@@ -42,8 +42,8 @@ ruff check web/
 - `web/routes/pages.py` — Page routes: `/`, `/login`, `/callback`, `/logout`, `/dashboard`, `/settings`
 - `web/routes/api.py` — API routes: all `/api/*` JSON endpoints (toggle, repeatable, balance, VIP, event, hide/unhide, reset, stats)
 - `web/middleware.py` — Request logging (before/after), session refresh
-- `web/validation.py` — Input validators (`validate_activity_id`, `validate_boolean`, `validate_integer`), API response helpers (`api_success`, `api_error`)
-- `web/auth.py` — Discord OAuth2 flow (`get_oauth_url`, `exchange_code`, `get_user_info`, `require_auth` decorator)
+- `web/validation.py` — Input validators (`validate_activity_id`, `validate_boolean`, `validate_integer`), API response helpers (`api_success`, `api_error`), `MAX_BALANCE` constant
+- `web/auth.py` — Discord OAuth2 flow (`get_oauth_url`, `exchange_code`, `get_user_info`, `require_auth` decorator, `state` CSRF protection)
 - `web/config.py` — `WebConfig` class reads from `.env` via python-dotenv; validates required vars on import
 - `web/database.py` — `Database` class wrapping SQLite with thread-local connections, WAL mode, atomic BP operations, repeatable completions, activity reset
 - `web/helpers.py` — Rate limiting (in-memory sliding window), BP calculation, dashboard/settings data preparation (including repeatable + timestamp flow)
@@ -51,6 +51,7 @@ ruff check web/
 
 **Frontend (vanilla JS + Jinja2 templates):**
 - `web/templates/base.html` — Base layout (navbar, footer, loads `common.js`)
+- `web/templates/login.html` — Login page with Discord OAuth2 button
 - `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips)
 - `web/templates/settings.html` — Settings page (VIP, events, balance, hidden activities, activity reset)
 - `web/static/js/common.js` — Shared utilities (`getCsrfToken`, `showLoading`, `hideLoading`, `showToast`, `isLoading`)
@@ -108,3 +109,5 @@ Fields:
 - Never commit directly to main — always create a branch with the appropriate prefix
 - Always `git pull origin main` before starting a new feature branch and after merging a PR
 - Use full branch prefixes: `feature/`, `bugfix/`, `docs/`, `cleanup/` (never abbreviated like `feat/` or `fix/`)
+- Always add labels when creating PRs (available: `feature`, `bugfix`, `docs`, `cleanup`, `security`, `ux`, `accessibility`, `infrastructure`)
+- Split large changes into multiple focused PRs (1-2 labels each, reviewable in a few minutes). Don't combine unrelated categories (e.g. security + accessibility) in one PR.
