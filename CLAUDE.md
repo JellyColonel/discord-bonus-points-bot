@@ -59,10 +59,12 @@ ruff check web/
 - `web/static/js/settings.js` — Settings page logic (VIP/event toggle, balance, hide/unhide, reset today's activities)
 - `web/static/css/style.css` — All styles, CSS variables for theming, mobile-first responsive
 
-**Tests (22 total):**
+**Tests (68 total):**
 - `tests/conftest.py` — Fixtures: temp DB, Flask test client, authenticated session
-- `tests/test_database.py` — Database operation tests (atomicity, floor, idempotency, timestamps, repeatable completions, reset)
-- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, reset)
+- `tests/test_database.py` — Database operation tests (atomicity, floor, idempotency, timestamps, repeatable completions, reset, settings, hidden check, close connection)
+- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, cap enforcement, reset, missing body, hidden rejection, VIP/event BP multipliers, user_data, activity_bp_values)
+- `tests/test_validation.py` — Input validator tests (activity_id format, boolean coercion, integer range)
+- `tests/test_helpers.py` — Helper function tests (BP calculation with multipliers, activity visibility, hidden ID sets)
 
 **Data:** SQLite DB at `data/bonus_points.db` (gitignored). Tables: `users`, `activities`, `hidden_activities`, `settings`, `repeatable_completions`.
 
