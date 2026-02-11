@@ -185,7 +185,7 @@ def test_repeatable_activity_add_remove(auth_session):
     assert data["count"] == 1
     assert data["bp_change"] > 0
     assert "completed_at" in data
-    balance_after_add = data["new_balance"]
+    _ = data["new_balance"]  # balance changes tested in other assertions
 
     # Add again
     response = auth_session.post(
@@ -293,3 +293,203 @@ def test_reset_today_activities(auth_session):
     assert data["success"] is True
     assert "deleted_count" in data
     assert "balance" in data
+
+
+# ============================================================================
+# Missing body / edge cases
+# ============================================================================
+
+
+def test_toggle_activity_missing_body(auth_session):
+    """Missing JSON body should return 400."""
+    response = auth_session.post(
+        "/api/toggle_activity",
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+
+
+def test_repeatable_activity_missing_body(auth_session):
+    """Missing JSON body should return 400."""
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+
+
+def test_repeatable_activity_invalid_action(auth_session):
+    """Invalid action should return error."""
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "invalid"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is False
+    assert "action" in data["error"]
+
+
+def test_repeatable_remove_zero_completions(auth_session):
+    """Removing with 0 completions should return error."""
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "remove"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is False
+    assert "No completions" in data["error"]
+
+
+def test_toggle_activity_hidden_rejected(auth_session):
+    """Toggling a hidden activity should be rejected."""
+    # Hide the activity first
+    auth_session.post(
+        "/api/hide_activity",
+        data=json.dumps({"activity_id": "metro"}),
+        content_type="application/json",
+    )
+
+    # Try to toggle it
+    response = auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "metro", "completed": True}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is False
+    assert "hidden" in data["error"].lower()
+
+    # Clean up
+    auth_session.post(
+        "/api/unhide_activity",
+        data=json.dumps({"activity_id": "metro"}),
+        content_type="application/json",
+    )
+
+
+def test_set_balance_missing_body(auth_session):
+    """Missing JSON body should return 400."""
+    response = auth_session.post(
+        "/api/set_balance",
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+
+
+def test_toggle_vip_missing_body(auth_session):
+    """Missing JSON body should return 400."""
+    response = auth_session.post(
+        "/api/toggle_vip",
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+
+
+def test_toggle_event_missing_body(auth_session):
+    """Missing JSON body should return 400."""
+    response = auth_session.post(
+        "/api/toggle_event",
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+
+
+# ============================================================================
+# Untested endpoints
+# ============================================================================
+
+
+def test_user_data_endpoint(auth_session):
+    """user_data endpoint should return all expected fields."""
+    response = auth_session.get("/api/user_data")
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert "vip_status" in data
+    assert "balance" in data
+    assert "completed_activities" in data
+    assert "event_active" in data
+    assert "hidden_activities" in data
+
+
+def test_activity_bp_values_endpoint(auth_session):
+    """activity_bp_values endpoint should return BP map and totals."""
+    response = auth_session.get("/api/activity_bp_values")
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert "activities" in data
+    assert "total_earned" in data
+    assert "total_remaining" in data
+    assert isinstance(data["activities"], dict)
+    assert len(data["activities"]) > 0
+
+
+def test_vip_affects_bp_calculation(auth_session):
+    """Enabling VIP should double BP earned on activity completion."""
+    from web.helpers import _rate_limit_store
+    _rate_limit_store.clear()
+
+    # Enable VIP
+    auth_session.post(
+        "/api/toggle_vip",
+        data=json.dumps({"vip_status": True}),
+        content_type="application/json",
+    )
+
+    # Complete an activity (fishing = 4 BP base)
+    response = auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "fishing", "completed": True}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["bp_change"] == 8  # 4 * 2 (VIP)
+
+    # Clean up: uncomplete and disable VIP
+    auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "fishing", "completed": False}),
+        content_type="application/json",
+    )
+    auth_session.post(
+        "/api/toggle_vip",
+        data=json.dumps({"vip_status": False}),
+        content_type="application/json",
+    )
+
+
+def test_event_affects_bp_calculation(auth_session):
+    """Enabling event should double BP earned on activity completion."""
+    from web.helpers import _rate_limit_store
+    _rate_limit_store.clear()
+
+    # Enable event
+    auth_session.post(
+        "/api/toggle_event",
+        data=json.dumps({"event_status": True}),
+        content_type="application/json",
+    )
+
+    # Complete an activity (basketball = 1 BP base)
+    response = auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "basketball", "completed": True}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["bp_change"] == 2  # 1 * 2 (event)
+
+    # Clean up
+    auth_session.post(
+        "/api/toggle_activity",
+        data=json.dumps({"activity_id": "basketball", "completed": False}),
+        content_type="application/json",
+    )
+    auth_session.post(
+        "/api/toggle_event",
+        data=json.dumps({"event_status": False}),
+        content_type="application/json",
+    )

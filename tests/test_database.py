@@ -166,3 +166,144 @@ def test_reset_today_activities(db):
     assert db.get_activity_status(user_id, "fishing", date) is False
     data = db.get_repeatable_completions(user_id, date)
     assert len(data) == 0
+
+
+# ============================================================================
+# Settings
+# ============================================================================
+
+
+def test_get_set_setting(db):
+    """Setting round-trip should work."""
+    assert db.get_setting("theme") is None
+    assert db.get_setting("theme", "dark") == "dark"
+
+    db.set_setting("theme", "light")
+    assert db.get_setting("theme") == "light"
+
+    # Overwrite
+    db.set_setting("theme", "dark")
+    assert db.get_setting("theme") == "dark"
+
+
+# ============================================================================
+# is_activity_hidden
+# ============================================================================
+
+
+def test_is_activity_hidden(db):
+    """Direct hidden check should work."""
+    user_id = 10001
+    assert db.is_activity_hidden(user_id, "fishing") is False
+
+    db.hide_activity(user_id, "fishing")
+    assert db.is_activity_hidden(user_id, "fishing") is True
+
+    db.unhide_activity(user_id, "fishing")
+    assert db.is_activity_hidden(user_id, "fishing") is False
+
+
+# ============================================================================
+# get_user_completed_activities (without BP)
+# ============================================================================
+
+
+def test_get_user_completed_activities(db):
+    """Should return completed activity IDs for a date."""
+    user_id = 11001
+    date = "2025-02-01"
+
+    # No completions
+    assert db.get_user_completed_activities(user_id, date) == []
+
+    # Add some
+    db.set_activity_status(user_id, "fishing", date, True, bp_earned=4)
+    db.set_activity_status(user_id, "metro", date, True, bp_earned=2)
+    db.set_activity_status(user_id, "darts", date, False)  # Not completed
+
+    completed = db.get_user_completed_activities(user_id, date)
+    assert set(completed) == {"fishing", "metro"}
+    assert "darts" not in completed
+
+
+# ============================================================================
+# get_activity_bp_earned
+# ============================================================================
+
+
+def test_get_activity_bp_earned(db):
+    """Should return stored BP or None."""
+    user_id = 12001
+    date = "2025-02-01"
+
+    # Not completed
+    assert db.get_activity_bp_earned(user_id, "fishing", date) is None
+
+    # Completed with BP
+    db.set_activity_status(user_id, "fishing", date, True, bp_earned=8)
+    assert db.get_activity_bp_earned(user_id, "fishing", date) == 8
+
+    # Uncompleted — should return None
+    db.set_activity_status(user_id, "fishing", date, False)
+    assert db.get_activity_bp_earned(user_id, "fishing", date) is None
+
+
+# ============================================================================
+# delete_repeatable_completions_for_date
+# ============================================================================
+
+
+def test_delete_repeatable_completions_for_date(db):
+    """Should delete all repeatable completions for a specific date."""
+    user_id = 13001
+    date = "2025-02-01"
+    other_date = "2025-02-02"
+
+    db.add_repeatable_completion(user_id, "online_3h", date, 2)
+    db.add_repeatable_completion(user_id, "online_3h", date, 2)
+    db.add_repeatable_completion(user_id, "online_3h", other_date, 2)
+
+    deleted = db.delete_repeatable_completions_for_date(user_id, date)
+    assert deleted == 2
+
+    # Date should be empty, other_date untouched
+    assert len(db.get_repeatable_completions(user_id, date)) == 0
+    assert len(db.get_repeatable_completions(user_id, other_date)["online_3h"]) == 1
+
+
+# ============================================================================
+# VIP / Event toggle
+# ============================================================================
+
+
+def test_set_vip_and_event_status(db):
+    """VIP and event toggles should persist."""
+    user_id = 14001
+
+    db.set_user_vip_status(user_id, True)
+    assert db.get_user_vip_status(user_id) is True
+
+    db.set_user_vip_status(user_id, False)
+    assert db.get_user_vip_status(user_id) is False
+
+    db.set_user_event_status(user_id, True)
+    assert db.get_user_event_status(user_id) is True
+
+    db.set_user_event_status(user_id, False)
+    assert db.get_user_event_status(user_id) is False
+
+
+# ============================================================================
+# close_connection
+# ============================================================================
+
+
+def test_close_connection(db):
+    """Closing should be safe, even when called multiple times."""
+    # Force a connection to be created
+    db.get_connection()
+    db.close_connection()
+    db.close_connection()  # Second close should not error
+
+    # Should still work after reopen
+    assert db.get_user_bp_balance(99999) == 0
