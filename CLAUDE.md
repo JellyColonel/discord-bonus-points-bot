@@ -110,10 +110,11 @@ Fields:
 ## Git Workflow
 
 - Never commit directly to main — always create a branch with the appropriate prefix
-- Always `git pull origin main` before starting a new feature branch and after merging a PR
+- Always `git pull --rebase origin main` before creating a new branch and after merging a PR
 - Use full branch prefixes: `feature/`, `bugfix/`, `docs/`, `cleanup/` (never abbreviated like `feat/` or `fix/`)
 - Always add labels when creating PRs (available: `feature`, `bugfix`, `docs`, `cleanup`, `security`, `ux`, `accessibility`, `infrastructure`)
 - Split large changes into multiple focused PRs (1-2 labels each, reviewable in a few minutes). Don't combine unrelated categories (e.g. security + accessibility) in one PR.
+- Merge PRs using squash and merge (`gh pr merge --squash`)
 
 ## Planned Features
 
