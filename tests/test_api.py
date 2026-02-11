@@ -209,6 +209,56 @@ def test_repeatable_activity_add_remove(auth_session):
     assert data["bp_change"] < 0
 
 
+def test_repeatable_activity_cap_enforced(auth_session):
+    """Repeatable activity should reject additions beyond max_completions."""
+    from web.helpers import _rate_limit_store
+    _rate_limit_store.clear()
+
+    from web.activities import get_activity_by_id
+    activity = get_activity_by_id("online_3h")
+    max_completions = activity["max_completions"]
+
+    # Add up to the cap
+    for i in range(max_completions):
+        response = auth_session.post(
+            "/api/repeatable_activity",
+            data=json.dumps({"activity_id": "online_3h", "action": "add"}),
+            content_type="application/json",
+        )
+        data = json.loads(response.data)
+        assert data["success"] is True
+        assert data["count"] == i + 1
+
+    # One more should fail
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "add"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is False
+    assert "лимит" in data["error"].lower()
+
+    # Remove one, then adding should work again
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "remove"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["count"] == max_completions - 1
+
+    response = auth_session.post(
+        "/api/repeatable_activity",
+        data=json.dumps({"activity_id": "online_3h", "action": "add"}),
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+    assert data["count"] == max_completions
+
+
 def test_repeatable_activity_non_repeatable_rejected(auth_session):
     """Non-repeatable activities should be rejected."""
     response = auth_session.post(

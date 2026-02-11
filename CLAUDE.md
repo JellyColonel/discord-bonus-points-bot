@@ -103,6 +103,7 @@ Fields:
 - `time` ("low" / "medium" / "high") — time investment filter
 - `description` (optional str) — shown as `?` tooltip on hover
 - `repeatable` (optional bool) — if `True`, uses +/- counter UI and separate DB table
+- `max_completions` (optional int) — daily cap for repeatable activities; enforced server-side, "+" button disables at cap
 
 ## Git Workflow
 
@@ -111,3 +112,10 @@ Fields:
 - Use full branch prefixes: `feature/`, `bugfix/`, `docs/`, `cleanup/` (never abbreviated like `feat/` or `fix/`)
 - Always add labels when creating PRs (available: `feature`, `bugfix`, `docs`, `cleanup`, `security`, `ux`, `accessibility`, `infrastructure`)
 - Split large changes into multiple focused PRs (1-2 labels each, reviewable in a few minutes). Don't combine unrelated categories (e.g. security + accessibility) in one PR.
+
+## Planned Features
+
+1. **First-login onboarding flow.** Guide new users through setting up their initial BP balance, VIP status, and event status. Explain that the settings page exists and what it does.
+2. **Returning-user reminder flow.** If a user hasn't logged in for 2+ weeks, show a shorter reminder to review/update their BP balance, VIP, and event status.
+3. **Daily completion history (maybe).** Show a per-day log of completed activities — potentially a simple history view or timeline.
+4. **Recipes page.** A new section with in-game recipes and step-by-step instructions, preferably with pictures. Not directly BP-related — this could evolve the app from a BP tracker into a broader companion tool for the group.

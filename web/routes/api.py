@@ -149,6 +149,15 @@ def repeatable_activity() -> Response | tuple[Response, int]:
         today = get_today_date()
 
         if action == "add":
+            max_completions = activity.get("max_completions")
+            if max_completions is not None:
+                current = db.get_repeatable_completions(user_id, today)
+                current_count = len(current.get(activity_id, []))
+                if current_count >= max_completions:
+                    return api_error(
+                        f"Достигнут лимит выполнений ({max_completions}) на сегодня"
+                    )
+
             vip_status = db.get_user_vip_status(user_id)
             event_active = is_event_active(db, user_id)
             bp = calculate_bp(activity, vip_status, event_active)
@@ -168,6 +177,7 @@ def repeatable_activity() -> Response | tuple[Response, int]:
                 bp_change=bp,
                 count=count,
                 total_bp=total_bp,
+                max_completions=activity.get("max_completions"),
                 completed_at=datetime.now(timezone.utc).isoformat(),
             )
         else:
@@ -194,6 +204,7 @@ def repeatable_activity() -> Response | tuple[Response, int]:
                 bp_change=-removed_bp,
                 count=count,
                 total_bp=total_bp,
+                max_completions=activity.get("max_completions"),
                 completed_at=last_completed_at,
             )
     except Exception:

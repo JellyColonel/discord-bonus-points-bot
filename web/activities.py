@@ -302,7 +302,8 @@ ACTIVITIES: List[Activity] = [
         "type": "solo",
         "time": "high",
         "repeatable": True,
-        "description": "Провести 3 часа в онлайне на сервере. Можно выполнять несколько раз",
+        "max_completions": 8,
+        "description": "Провести 3 часа в онлайне на сервере. Можно выполнять до 8 раз в день",
     },
     {
         "id": "firefighter",

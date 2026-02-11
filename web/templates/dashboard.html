@@ -112,7 +112,8 @@
                  data-completed="{{ 'true' if activity.completed else 'false' }}"
                  data-completed-at="{{ activity.completed_at or '' }}"
                  data-repeatable="{{ 'true' if activity.repeatable else 'false' }}"
-                 data-repeat-count="{{ activity.repeat_count|default(0) }}">
+                 data-repeat-count="{{ activity.repeat_count|default(0) }}"
+                 {% if activity.max_completions is defined and activity.max_completions is not none %}data-max-completions="{{ activity.max_completions }}"{% endif %}>
                 <div class="activity-header">
                     {% if activity.repeatable %}
                     <label>
@@ -141,8 +142,9 @@
                             {% if activity.repeat_count|default(0) == 0 %}disabled{% endif %}
                             aria-label="Убрать выполнение">-</button>
                     <span class="repeat-count">{{ activity.repeat_count|default(0) }}</span>
-                    <button class="repeat-btn repeat-btn-add"
+                    <button class="repeat-btn repeat-btn-add{% if activity.max_completions is defined and activity.max_completions is not none and activity.repeat_count|default(0) >= activity.max_completions %} disabled{% endif %}"
                             onclick="repeatActivity('{{ activity.id }}', 'add')"
+                            {% if activity.max_completions is defined and activity.max_completions is not none and activity.repeat_count|default(0) >= activity.max_completions %}disabled{% endif %}
                             aria-label="Добавить выполнение">+</button>
                 </div>
                 <div class="activity-bp">
