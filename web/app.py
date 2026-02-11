@@ -6,7 +6,6 @@ from typing import Optional
 from flask import Flask, render_template
 from flask_wtf.csrf import CSRFProtect
 
-from flask_session import Session
 from web.config import WebConfig
 from web.database import Database
 from web.middleware import register_middleware
@@ -18,7 +17,6 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(WebConfig)
-Session(app)
 CSRFProtect(app)
 
 # Initialize database

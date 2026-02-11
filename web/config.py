@@ -17,12 +17,10 @@ class WebConfig:
 
     # Flask settings
     SECRET_KEY: Optional[str] = os.getenv("SECRET_KEY")
-    SESSION_TYPE: str = "filesystem"
     SESSION_PERMANENT: bool = True
     PERMANENT_SESSION_LIFETIME: timedelta = timedelta(
         days=int(os.getenv("SESSION_LIFETIME_DAYS", "30"))
     )
-    SESSION_USE_SIGNER: bool = True
     SESSION_COOKIE_SECURE: bool = os.getenv("WEB_DEBUG", "False") != "True"
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = "Lax"
