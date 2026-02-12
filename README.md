@@ -17,6 +17,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Activity Help Tooltips** — Hover `?` icon for activity descriptions
 - **Hidden Activities** — Hide irrelevant activities from your dashboard
 - **Activity Reset** — Clear all today's completions without changing BP balance
+- **First-Login Onboarding** — 3-step modal guides new users through setting BP balance, VIP, and event status
 
 ### Web Dashboard
 - **Discord OAuth2 Login** — Secure authentication with your Discord account
@@ -32,7 +33,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Database Indexing** — Optimized queries for fast performance
 - **WAL Mode** — Better concurrent access for web server
 - **Docker Support** — `docker-compose up --build` for containerized deployment
-- **22 Tests** — Database and API endpoint test coverage
+- **74 Tests** — Database, API, validation, and helper test coverage
 
 ## Quick Start
 
@@ -317,7 +318,9 @@ bonus_points_bot/
 ├── tests/
 │   ├── conftest.py            # Fixtures (temp DB, test client, auth)
 │   ├── test_database.py       # DB operation tests
-│   └── test_api.py            # API endpoint tests
+│   ├── test_api.py            # API endpoint tests
+│   ├── test_validation.py     # Input validator tests
+│   └── test_helpers.py        # Helper function tests
 ├── data/                      # Runtime data (gitignored)
 │   └── bonus_points.db
 ├── logs/                      # Log files (gitignored)
@@ -352,7 +355,7 @@ Edit `web/activities.py` — append to the `ACTIVITIES` list:
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v    # 22 tests
+pytest tests/ -v    # 74 tests
 ruff check web/     # Linter
 ```
 
