@@ -1,0 +1,200 @@
+/* =================================================================
+   Settings Page
+   ================================================================= */
+
+.settings-page {
+    padding: 20px 0;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.settings-header {
+    margin-bottom: 32px;
+}
+
+.settings-header h2 {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.settings-header p {
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
+.settings-section {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.settings-section h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+}
+
+.section-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* Account Settings Grid */
+.account-settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.setting-item {
+    background: var(--surface-light);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+    border-color: var(--border);
+}
+
+.setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.setting-label {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.setting-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.setting-description strong {
+    color: var(--primary-color);
+}
+
+.setting-item .badge {
+    min-width: 120px;
+    text-align: center;
+}
+
+.setting-item-balance {
+    flex-wrap: wrap;
+}
+
+/* Activities List (Settings page) */
+.settings-search {
+    display: flex;
+    align-items: center;
+    background: var(--surface-light);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.settings-search .search-icon {
+    margin-right: 10px;
+    font-size: 18px;
+    opacity: 0.6;
+}
+
+.settings-search input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+}
+
+.settings-search input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.activities-list {
+    max-height: 500px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.activity-item {
+    background: var(--surface-light);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+}
+
+.activity-item:hover {
+    background: var(--border);
+}
+
+.activity-item.hidden-item {
+    opacity: 0.5;
+}
+
+.activity-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-item-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-item-bp {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.settings-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.settings-footer {
+    margin-top: 32px;
+    text-align: center;
+}
+
+/* =================================================================
+   Responsive — Settings
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .setting-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .setting-item .badge {
+        width: 100%;
+        text-align: center;
+    }
+}

@@ -1,0 +1,23 @@
+/* =================================================================
+   Login Page — Features List
+   ================================================================= */
+
+.features {
+    margin-top: 40px;
+    text-align: left;
+}
+
+.features h3 {
+    font-size: 20px;
+    margin-bottom: 16px;
+}
+
+.features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.features li {
+    padding: 8px 0;
+    color: var(--text-secondary);
+}

@@ -1,0 +1,436 @@
+/* =================================================================
+   Global Styles
+   ================================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* Colors */
+    --primary-color: #5865F2;
+    --secondary-color: #3BA55D;
+    --danger-color: #ED4245;
+    --warning-color: #FEE75C;
+    --background: #23272A;
+    --surface: #2C2F33;
+    --surface-light: #36393F;
+    --text-primary: #FFFFFF;
+    --text-secondary: #B9BBBE;
+    --border: #202225;
+    --success: #3BA55D;
+    --vip-color: #E5E4E2;
+    --vip-platinum: #E5E4E2;
+    --vip-platinum-dark: #C0C0C0;
+
+    /* Shadows */
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-primary: 0 4px 12px rgba(88, 101, 242, 0.4);
+    --shadow-success: 0 4px 12px rgba(59, 165, 93, 0.2);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--background);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    max-width: 1400px;
+    min-width: min(100%, 1400px);
+    margin: 0 auto;
+    padding: 20px;
+    flex: 1;
+    width: 100%;
+}
+
+/* =================================================================
+   Navigation
+   ================================================================= */
+
+.navbar {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    padding: 15px 0;
+}
+
+.nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand h1 {
+    font-size: 24px;
+    color: var(--text-primary);
+}
+
+.nav-brand-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.nav-brand-link:hover h1 {
+    opacity: 0.9;
+}
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.username {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.nav-icon-link {
+    font-size: 24px;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+
+.nav-icon-link:hover {
+    transform: scale(1.1);
+}
+
+/* =================================================================
+   Buttons
+   ================================================================= */
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #4752C4;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary);
+}
+
+.btn-secondary {
+    background: #40444B;
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: #4A4E55;
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c63b3e;
+}
+
+.btn-hide {
+    background: var(--surface-light);
+    color: var(--text-secondary);
+}
+
+.btn-hide:hover {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-show {
+    background: var(--success);
+    color: white;
+}
+
+.btn-show:hover {
+    background: #2d8a46;
+}
+
+.btn-discord {
+    background: var(--primary-color);
+    color: white;
+    padding: 16px 32px;
+    font-size: 18px;
+}
+
+.btn-discord svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* =================================================================
+   Centered Card Layout (login + error pages)
+   ================================================================= */
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px);
+    padding: 20px;
+}
+
+.login-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 48px;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.login-card h2 {
+    font-size: 32px;
+    margin-bottom: 16px;
+}
+
+.login-card p {
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+}
+
+/* =================================================================
+   Status Badges
+   ================================================================= */
+
+.badge {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.badge-vip {
+    background: linear-gradient(135deg, var(--vip-platinum), var(--vip-platinum-dark));
+    color: var(--background);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.badge-vip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(229, 228, 226, 0.3);
+    border-color: var(--vip-platinum);
+}
+
+.badge-inactive {
+    background: var(--surface-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.badge-inactive:hover {
+    background: var(--surface);
+    border-color: var(--vip-platinum-dark);
+    transform: translateY(-2px);
+}
+
+.badge-event {
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.badge-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+    border-color: #FF6B6B;
+}
+
+/* =================================================================
+   Balance Control (shared: settings, onboarding, reminder)
+   ================================================================= */
+
+.balance-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.balance-control input {
+    width: 140px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.balance-control input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.balance-control input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+/* Remove number input spinners */
+.balance-control input::-webkit-outer-spin-button,
+.balance-control input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.balance-control input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* =================================================================
+   Loading Overlay
+   ================================================================= */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--surface-light);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* =================================================================
+   Footer
+   ================================================================= */
+
+.footer {
+    background: var(--surface);
+    border-top: 2px solid var(--border);
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    margin-top: auto;
+}
+
+/* =================================================================
+   Notifications/Toasts
+   ================================================================= */
+
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    color: var(--text-primary);
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+    min-width: 250px;
+    text-align: center;
+}
+
+.toast.success {
+    border-left: 4px solid var(--success);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger-color);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* =================================================================
+   Responsive — Shared
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .nav-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .login-card {
+        padding: 32px 24px;
+    }
+
+    .balance-control {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .balance-control input {
+        width: 100%;
+    }
+
+    .balance-control .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 390px) {
+    .container {
+        padding: 12px;
+    }
+}

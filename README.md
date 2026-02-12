@@ -311,15 +311,24 @@ bonus_points_bot/
 │   │   ├── dashboard.html     # Activity dashboard (tabs, cards, filters)
 │   │   ├── settings.html      # Settings page (VIP, balance, reset)
 │   │   ├── login.html         # Login page
+│   │   ├── partials/
+│   │   │   ├── onboarding_modal.html  # New-user onboarding modal
+│   │   │   └── reminder_modal.html    # Returning-user reminder modal
 │   │   └── errors/
 │   │       ├── 404.html       # Not found error page
 │   │       └── 500.html       # Server error page
 │   └── static/
 │       ├── css/
-│       │   └── style.css      # All styles, CSS variables, responsive
+│       │   ├── base.css       # Shared: variables, nav, buttons, badges
+│       │   ├── dashboard.css  # Dashboard: stats, tabs, cards, filters
+│       │   ├── settings.css   # Settings: sections, items, activity list
+│       │   ├── login.css      # Login: features list
+│       │   └── onboarding.css # Onboarding + reminder modals
 │       └── js/
 │           ├── common.js      # Shared utilities (CSRF, loading, toasts)
 │           ├── dashboard.js   # Dashboard logic (toggle, filter, repeat)
+│           ├── onboarding.js  # Onboarding modal flow (new users)
+│           ├── reminder.js    # Returning-user reminder flow
 │           └── settings.js    # Settings logic (VIP, balance, reset)
 ├── tests/
 │   ├── __init__.py
@@ -373,10 +382,10 @@ ruff check web/     # Linter
 
 ### Customizing the Dashboard
 
-- **Styles**: Edit `web/static/css/style.css`
+- **Styles**: Edit page-specific CSS in `web/static/css/` (`base.css` for shared, `dashboard.css` for dashboard, etc.)
 - **Layout**: Edit `web/templates/dashboard.html`
 - **Behavior**: Edit `web/static/js/dashboard.js`
-- **Colors**: Modify CSS variables in `:root` selector
+- **Colors**: Modify CSS variables in `:root` selector in `web/static/css/base.css`
 
 ## Logging
 

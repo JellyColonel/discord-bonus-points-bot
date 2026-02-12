@@ -2,6 +2,10 @@
 
 {% block title %}Настройки - Бонусные Очки{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="settings-page">
     <div class="settings-header">

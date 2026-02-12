@@ -2,6 +2,11 @@
 
 {% block title %}Панель - Бонусные Очки{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="dashboard">
     <!-- Compact Control Panel (Stats + Search + Filters) -->
