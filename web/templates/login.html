@@ -2,6 +2,10 @@
 
 {% block title %}Вход - Панель Бонусных Очков{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="login-container">
     <div class="login-card">

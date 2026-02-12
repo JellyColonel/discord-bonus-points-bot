@@ -52,13 +52,21 @@ ruff check web/
 **Frontend (vanilla JS + Jinja2 templates):**
 - `web/templates/base.html` — Base layout (navbar, footer, loads `common.js`)
 - `web/templates/login.html` — Login page with Discord OAuth2 button
-- `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips, onboarding modal)
+- `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips)
 - `web/templates/settings.html` — Settings page (VIP, events, balance, hidden activities, activity reset)
+- `web/templates/partials/onboarding_modal.html` — Onboarding modal partial (3-step new-user flow)
+- `web/templates/partials/reminder_modal.html` — Returning-user reminder modal partial
 - `web/templates/errors/404.html`, `web/templates/errors/500.html` — Custom error pages
 - `web/static/js/common.js` — Shared utilities (`getCsrfToken`, `apiCall`, `showLoading`, `hideLoading`, `showToast`, `debounce`)
-- `web/static/js/dashboard.js` — Dashboard logic (toggle, search, filter, tabs, timestamps, repeatable activity controls, onboarding step navigation)
+- `web/static/js/dashboard.js` — Dashboard logic (toggle, search, filter, tabs, timestamps, repeatable activity controls)
+- `web/static/js/onboarding.js` — Onboarding modal flow (self-initializing, loaded conditionally for new users)
+- `web/static/js/reminder.js` — Returning-user reminder flow (self-initializing, loaded conditionally)
 - `web/static/js/settings.js` — Settings page logic (VIP/event toggle, balance, hide/unhide, reset today's activities)
-- `web/static/css/style.css` — All styles, CSS variables for theming, mobile-first responsive, onboarding modal
+- `web/static/css/base.css` — Shared styles: variables, navigation, buttons, badges, loading, footer, toasts
+- `web/static/css/dashboard.css` — Dashboard page: control panel, tabs, activity cards, filters, empty state
+- `web/static/css/settings.css` — Settings page: sections, items, activity list
+- `web/static/css/login.css` — Login page: features list
+- `web/static/css/onboarding.css` — Onboarding + returning-user reminder modals
 
 **Tests (84 total):**
 - `tests/conftest.py` — Fixtures: temp DB, Flask test client, authenticated session
