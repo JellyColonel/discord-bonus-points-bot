@@ -40,29 +40,29 @@ ruff check web/
 **Backend (Python/Flask):**
 - `web/app.py` — Flask app factory, registers blueprints, DB init, teardown (~60 lines)
 - `web/routes/pages.py` — Page routes: `/`, `/login`, `/callback`, `/logout`, `/dashboard`, `/settings`
-- `web/routes/api.py` — API routes: all `/api/*` JSON endpoints (toggle, repeatable, balance, VIP, event, hide/unhide, reset, stats)
+- `web/routes/api.py` — API routes: all `/api/*` JSON endpoints (toggle, repeatable, balance, VIP, event, hide/unhide, reset, stats, complete_onboarding)
 - `web/middleware.py` — Request logging (before/after), session refresh
 - `web/validation.py` — Input validators (`validate_activity_id`, `validate_boolean`, `validate_integer`), API response helpers (`api_success`, `api_error`), `MAX_BALANCE` constant
 - `web/auth.py` — Discord OAuth2 flow (`get_oauth_url`, `exchange_code`, `get_user_info`, `require_auth` decorator, `state` CSRF protection)
 - `web/config.py` — `WebConfig` class reads from `.env` via python-dotenv; validates required vars on import
-- `web/database.py` — `Database` class wrapping SQLite with thread-local connections, WAL mode, atomic BP operations, repeatable completions, activity reset
-- `web/helpers.py` — Rate limiting (in-memory sliding window), BP calculation, dashboard/settings data preparation (including repeatable + timestamp flow)
+- `web/database.py` — `Database` class wrapping SQLite with thread-local connections, WAL mode, atomic BP operations, repeatable completions, activity reset, user existence checks
+- `web/helpers.py` — Rate limiting (in-memory sliding window), BP calculation, dashboard/settings data preparation (including repeatable + timestamp flow), onboarding detection
 - `web/activities.py` — Activity definitions list (`ACTIVITIES`) with cached O(1) lookup by ID, `is_repeatable()` helper
 
 **Frontend (vanilla JS + Jinja2 templates):**
 - `web/templates/base.html` — Base layout (navbar, footer, loads `common.js`)
 - `web/templates/login.html` — Login page with Discord OAuth2 button
-- `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips)
+- `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips, onboarding modal)
 - `web/templates/settings.html` — Settings page (VIP, events, balance, hidden activities, activity reset)
 - `web/static/js/common.js` — Shared utilities (`getCsrfToken`, `showLoading`, `hideLoading`, `showToast`, `isLoading`)
-- `web/static/js/dashboard.js` — Dashboard logic (toggle, search, filter, tabs, timestamps, repeatable activity controls)
+- `web/static/js/dashboard.js` — Dashboard logic (toggle, search, filter, tabs, timestamps, repeatable activity controls, onboarding step navigation)
 - `web/static/js/settings.js` — Settings page logic (VIP/event toggle, balance, hide/unhide, reset today's activities)
-- `web/static/css/style.css` — All styles, CSS variables for theming, mobile-first responsive
+- `web/static/css/style.css` — All styles, CSS variables for theming, mobile-first responsive, onboarding modal
 
-**Tests (68 total):**
+**Tests (74 total):**
 - `tests/conftest.py` — Fixtures: temp DB, Flask test client, authenticated session
-- `tests/test_database.py` — Database operation tests (atomicity, floor, idempotency, timestamps, repeatable completions, reset, settings, hidden check, close connection)
-- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, cap enforcement, reset, missing body, hidden rejection, VIP/event BP multipliers, user_data, activity_bp_values)
+- `tests/test_database.py` — Database operation tests (atomicity, floor, idempotency, timestamps, repeatable completions, reset, settings, hidden check, close connection, user existence)
+- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, cap enforcement, reset, missing body, hidden rejection, VIP/event BP multipliers, user_data, activity_bp_values, onboarding)
 - `tests/test_validation.py` — Input validator tests (activity_id format, boolean coercion, integer range)
 - `tests/test_helpers.py` — Helper function tests (BP calculation with multipliers, activity visibility, hidden ID sets)
 
@@ -81,6 +81,7 @@ ruff check web/
 - **Activity help tooltips:** Optional `description` field on activity definitions, rendered as a `?` icon with `title` attribute on dashboard and settings pages.
 - **Completion timestamps:** `completed_at` (UTC ISO) flows from DB → helpers → template → JS, which converts to local time "в HH:MM" display.
 - **Activity reset:** Per-user self-reset on settings page clears all completions (regular + repeatable) for today WITHOUT modifying BP balance.
+- **Onboarding detection:** First-login users (no row in `users` table) see a 3-step onboarding modal on dashboard: set BP balance → set VIP status → set event status. Completion calls `/api/complete_onboarding` which sets all three at once. Detected via `database.user_exists()` + `helpers.is_new_user()`.
 
 ## API Response Format
 
@@ -119,8 +120,7 @@ Fields:
 
 ## Planned Features
 
-1. **First-login onboarding flow.** Guide new users through setting up their initial BP balance, VIP status, and event status. Explain that the settings page exists and what it does.
-2. **Returning-user reminder flow.** If a user hasn't logged in for 2+ weeks, show a shorter reminder to review/update their BP balance, VIP, and event status.
-3. **Daily completion history (maybe).** Show a per-day log of completed activities — potentially a simple history view or timeline.
-4. **Recipes page.** A new section with in-game recipes and step-by-step instructions, preferably with pictures. Not directly BP-related — this could evolve the app from a BP tracker into a broader companion tool for the group.
-5. **Global CLAUDE.md sync.** Create a private git repo for `~/.claude/CLAUDE.md` (and other config), symlink on each machine. Keeps global instructions portable across PCs.
+1. **Returning-user reminder flow.** If a user hasn't logged in for 2+ weeks, show a shorter reminder to review/update their BP balance, VIP, and event status.
+2. **Daily completion history (maybe).** Show a per-day log of completed activities — potentially a simple history view or timeline.
+3. **Recipes page.** A new section with in-game recipes and step-by-step instructions, preferably with pictures. Not directly BP-related — this could evolve the app from a BP tracker into a broader companion tool for the group.
+4. **Global CLAUDE.md sync.** Create a private git repo for `~/.claude/CLAUDE.md` (and other config), symlink on each machine. Keeps global instructions portable across PCs.
