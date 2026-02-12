@@ -493,3 +493,48 @@ def test_event_affects_bp_calculation(auth_session):
         data=json.dumps({"event_status": False}),
         content_type="application/json",
     )
+
+
+# ============================================================================
+# Onboarding
+# ============================================================================
+
+
+def test_complete_onboarding_creates_user_row(auth_session):
+    """POST /api/complete_onboarding should create user row and return success."""
+    response = auth_session.post(
+        "/api/complete_onboarding",
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+
+
+def test_complete_onboarding_unauthenticated(client):
+    """Unauthenticated onboarding request should redirect to login."""
+    response = client.post(
+        "/api/complete_onboarding",
+        content_type="application/json",
+    )
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_dashboard_shows_onboarding_for_new_user(auth_session):
+    """New user dashboard should contain onboarding overlay."""
+    response = auth_session.get("/dashboard")
+    assert response.status_code == 200
+    assert b"onboarding-overlay" in response.data
+
+
+def test_dashboard_hides_onboarding_for_existing_user(auth_session):
+    """After completing onboarding, dashboard should NOT contain overlay."""
+    # Complete onboarding (creates user row)
+    auth_session.post(
+        "/api/complete_onboarding",
+        content_type="application/json",
+    )
+
+    response = auth_session.get("/dashboard")
+    assert response.status_code == 200
+    assert b"onboarding-overlay" not in response.data

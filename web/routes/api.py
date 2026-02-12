@@ -532,6 +532,28 @@ def user_stats() -> Response | tuple[Response, int]:
 
 
 # ============================================================================
+# Onboarding
+# ============================================================================
+
+
+@api_bp.route("/complete_onboarding", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=10, window_seconds=60)
+def complete_onboarding() -> Response | tuple[Response, int]:
+    """Create a user row with defaults (used when skipping onboarding)."""
+    db = _get_db()
+    user_id = int(session["user"]["id"])
+
+    try:
+        db.ensure_user_exists(user_id)
+        logger.info(f"User {user_id} completed onboarding (skip)")
+        return api_success()
+    except Exception:
+        logger.exception(f"Error completing onboarding for user {user_id}")
+        return api_error("Failed to complete onboarding", 500)
+
+
+# ============================================================================
 # Reset Activities
 # ============================================================================
 

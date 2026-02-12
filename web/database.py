@@ -281,6 +281,28 @@ class Database:
         logger.info("Database tables ready")
 
     # =========================================================================
+    # User Existence methods
+    # =========================================================================
+
+    def user_exists(self, user_id: int) -> bool:
+        """Check if a user row exists in the users table."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT 1 FROM users WHERE user_id = ?", (str(user_id),)
+            )
+            exists = cursor.fetchone() is not None
+            logger.debug(f"User {user_id} exists: {exists}")
+            return exists
+
+    def ensure_user_exists(self, user_id: int) -> None:
+        """Create a user row with defaults if it doesn't exist."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                "INSERT OR IGNORE INTO users (user_id) VALUES (?)",
+                (str(user_id),),
+            )
+
+    # =========================================================================
     # User VIP methods
     # =========================================================================
 
