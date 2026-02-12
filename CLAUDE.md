@@ -54,7 +54,8 @@ ruff check web/
 - `web/templates/login.html` — Login page with Discord OAuth2 button
 - `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips, onboarding modal)
 - `web/templates/settings.html` — Settings page (VIP, events, balance, hidden activities, activity reset)
-- `web/static/js/common.js` — Shared utilities (`getCsrfToken`, `showLoading`, `hideLoading`, `showToast`, `isLoading`)
+- `web/templates/errors/404.html`, `web/templates/errors/500.html` — Custom error pages
+- `web/static/js/common.js` — Shared utilities (`getCsrfToken`, `apiCall`, `showLoading`, `hideLoading`, `showToast`, `debounce`)
 - `web/static/js/dashboard.js` — Dashboard logic (toggle, search, filter, tabs, timestamps, repeatable activity controls, onboarding step navigation)
 - `web/static/js/settings.js` — Settings page logic (VIP/event toggle, balance, hide/unhide, reset today's activities)
 - `web/static/css/style.css` — All styles, CSS variables for theming, mobile-first responsive, onboarding modal
@@ -74,7 +75,7 @@ ruff check web/
 - **Atomic BP operations:** `add_user_bp()` and `subtract_user_bp()` use single SQL statements (`bp_balance + ?` / `MAX(bp_balance - ?, 0)`) to prevent race conditions.
 - **Per-user events:** The x2 BP event flag is per-user (`users.event_active`), not a global setting.
 - **Daily reset:** Activities reset at 07:00 Moscow Time (04:00 UTC). Date boundary is calculated in `database.get_today_date()`.
-- **Rate limiting:** Decorator-based, in-memory sliding window keyed by Discord user ID. Cleans up empty entries to prevent memory leaks.
+- **Rate limiting:** Decorator-based, in-memory sliding window keyed by Discord user ID + endpoint name. Cleans up empty entries to prevent memory leaks.
 - **Thread-local DB connections:** Each Flask worker thread gets its own SQLite connection via `threading.local()`, closed at request teardown.
 - **Blueprint structure:** Page routes (`pages_bp`) and API routes (`api_bp` with `/api` prefix) are separated into blueprints. Templates use `url_for('pages.dashboard')` etc.
 - **Repeatable activities:** Activities with `"repeatable": True` use a separate `repeatable_completions` table (not the UNIQUE-constrained `activities` table). They show +/- counter UI, always stay in the "active" tab, and don't count toward completion progress — only their earned BP adds to the total.
