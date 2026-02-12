@@ -39,7 +39,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.12 or higher
 - Discord OAuth2 Application configured for web dashboard
 
 ### Installation
@@ -127,6 +127,7 @@ SECRET_KEY=your_random_secret_key_here
 WEB_HOST=0.0.0.0
 WEB_PORT=5000
 WEB_DEBUG=False
+SESSION_LIFETIME_DAYS=30  # Optional, default 30
 ```
 
 ### Getting Discord OAuth2 Credentials
@@ -301,13 +302,17 @@ bonus_points_bot/
 │   ├── middleware.py          # Request logging, session refresh
 │   ├── validation.py          # Input validators, API response helpers
 │   ├── routes/
+│   │   ├── __init__.py
 │   │   ├── pages.py           # Page routes (login, dashboard, settings)
 │   │   └── api.py             # API routes (/api/* JSON endpoints)
 │   ├── templates/
 │   │   ├── base.html          # Base layout (navbar, footer)
 │   │   ├── dashboard.html     # Activity dashboard (tabs, cards, filters)
 │   │   ├── settings.html      # Settings page (VIP, balance, reset)
-│   │   └── login.html         # Login page
+│   │   ├── login.html         # Login page
+│   │   └── errors/
+│   │       ├── 404.html       # Not found error page
+│   │       └── 500.html       # Server error page
 │   └── static/
 │       ├── css/
 │       │   └── style.css      # All styles, CSS variables, responsive
@@ -316,6 +321,7 @@ bonus_points_bot/
 │           ├── dashboard.js   # Dashboard logic (toggle, filter, repeat)
 │           └── settings.js    # Settings logic (VIP, balance, reset)
 ├── tests/
+│   ├── __init__.py
 │   ├── conftest.py            # Fixtures (temp DB, test client, auth)
 │   ├── test_database.py       # DB operation tests
 │   ├── test_api.py            # API endpoint tests
@@ -330,7 +336,12 @@ bonus_points_bot/
 ├── requirements-dev.txt       # Dev dependencies (pytest, ruff)
 ├── pyproject.toml             # Ruff + pytest config
 ├── run.py                     # Entry point
-└── CLAUDE.md                  # AI assistant instructions
+├── CLAUDE.md                  # AI assistant instructions
+├── .env.example               # Environment variable template
+├── .gitignore
+├── .dockerignore
+├── .editorconfig
+└── LICENSE                    # MIT License
 ```
 
 ## Development
