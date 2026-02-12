@@ -274,6 +274,7 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
         "progress_percentage": progress_percentage,
         "event_active": event_active,
         "hidden_activities": hidden_activities,
+        "is_new_user": not db.user_exists(user_id),
     }
 
 

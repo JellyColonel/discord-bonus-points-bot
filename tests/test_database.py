@@ -307,3 +307,34 @@ def test_close_connection(db):
 
     # Should still work after reopen
     assert db.get_user_bp_balance(99999) == 0
+
+
+# ============================================================================
+# user_exists / ensure_user_exists
+# ============================================================================
+
+
+def test_user_exists(db):
+    """user_exists should return False for unknown user, True after row created."""
+    user_id = 15001
+    assert db.user_exists(user_id) is False
+
+    db.set_user_bp_balance(user_id, 0)  # Creates user row
+    assert db.user_exists(user_id) is True
+
+
+def test_ensure_user_exists(db):
+    """ensure_user_exists should create row with defaults, be idempotent."""
+    user_id = 16001
+    assert db.user_exists(user_id) is False
+
+    db.ensure_user_exists(user_id)
+    assert db.user_exists(user_id) is True
+    assert db.get_user_bp_balance(user_id) == 0
+    assert db.get_user_vip_status(user_id) is False
+    assert db.get_user_event_status(user_id) is False
+
+    # Idempotent — second call should not error or change data
+    db.set_user_bp_balance(user_id, 100)
+    db.ensure_user_exists(user_id)
+    assert db.get_user_bp_balance(user_id) == 100

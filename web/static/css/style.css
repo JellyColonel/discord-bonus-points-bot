@@ -1060,6 +1060,165 @@ body {
 }
 
 /* =================================================================
+   Onboarding Modal
+   ================================================================= */
+
+.onboarding-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9998;
+    padding: 20px;
+}
+
+.onboarding-modal {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 40px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+    animation: onboardingFadeIn 0.3s ease;
+}
+
+@keyframes onboardingFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.onboarding-progress {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 32px;
+}
+
+.onboarding-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s ease;
+}
+
+.onboarding-dot.active {
+    background: var(--primary-color);
+    transform: scale(1.2);
+}
+
+.onboarding-step {
+    display: none;
+    text-align: center;
+}
+
+.onboarding-step.active {
+    display: block;
+}
+
+.onboarding-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.onboarding-step h2 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.onboarding-step p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+.onboarding-hint {
+    font-size: 13px !important;
+    opacity: 0.7;
+    margin-top: 12px !important;
+}
+
+.onboarding-input-group {
+    margin: 24px 0 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.onboarding-input-group .balance-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.onboarding-input-group .balance-control input {
+    width: 140px;
+    padding: 10px 14px;
+    background: var(--surface-light);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    transition: border-color 0.2s ease;
+}
+
+.onboarding-input-group .balance-control input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Remove number input spinners in onboarding */
+.onboarding-input-group .balance-control input::-webkit-outer-spin-button,
+.onboarding-input-group .balance-control input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.onboarding-input-group .balance-control input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.onboarding-unit {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.onboarding-toggle-group {
+    margin: 24px 0 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.onboarding-toggle-group .badge {
+    min-width: 140px;
+    text-align: center;
+}
+
+.onboarding-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.onboarding-nav-right {
+    display: flex;
+    gap: 8px;
+}
+
+/* =================================================================
    Loading Overlay
    ================================================================= */
 
@@ -1316,5 +1475,17 @@ body {
 
     .activity-header label {
         font-size: 14px;
+    }
+
+    .onboarding-modal {
+        padding: 24px 20px;
+    }
+
+    .onboarding-icon {
+        font-size: 36px;
+    }
+
+    .onboarding-step h2 {
+        font-size: 20px;
     }
 }

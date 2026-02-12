@@ -108,6 +108,8 @@ def dashboard() -> str:
         total_activities=data["total_activities"],
         progress_percentage=data["progress_percentage"],
         event_active=data["event_active"],
+        is_new_user=data["is_new_user"],
+        max_balance=MAX_BALANCE,
     )
 
 
