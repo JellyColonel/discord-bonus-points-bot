@@ -1,0 +1,80 @@
+{% if is_new_user %}
+<!-- Onboarding Modal -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+    <div class="onboarding-modal">
+        <!-- Progress dots -->
+        <div class="onboarding-progress">
+            <span class="onboarding-dot active" data-step="0"></span>
+            <span class="onboarding-dot" data-step="1"></span>
+            <span class="onboarding-dot" data-step="2"></span>
+            <span class="onboarding-dot" data-step="3"></span>
+        </div>
+
+        <!-- Step 0: Welcome -->
+        <div class="onboarding-step active" data-step="0">
+            <div class="onboarding-icon">👋</div>
+            <h2>Добро пожаловать!</h2>
+            <p>Это панель для отслеживания ежедневных бонусных очков. Здесь вы можете отмечать выполненные активности и следить за своим балансом BP.</p>
+            <p class="onboarding-hint">Давайте настроим ваш аккаунт за пару шагов.</p>
+        </div>
+
+        <!-- Step 1: BP Balance -->
+        <div class="onboarding-step" data-step="1">
+            <div class="onboarding-icon">💰</div>
+            <h2>Ваш текущий баланс BP</h2>
+            <p>Если у вас уже есть бонусные очки, введите текущий баланс. Если нет — оставьте 0.</p>
+            <div class="onboarding-input-group">
+                <div class="balance-control">
+                    <input type="number"
+                           id="onboarding-balance"
+                           placeholder="0"
+                           min="0"
+                           max="{{ max_balance }}"
+                           value="0">
+                    <span class="onboarding-unit">BP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: VIP Status -->
+        <div class="onboarding-step" data-step="2">
+            <div class="onboarding-icon">⭐</div>
+            <h2>VIP Статус</h2>
+            <p>У вас есть VIP? Он удваивает получаемые BP за каждую активность.</p>
+            <div class="onboarding-toggle-group">
+                <div class="badge badge-inactive" id="onboarding-vip-badge"
+                     role="button" tabindex="0"
+                     onclick="onboardingToggleVIP()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();onboardingToggleVIP()}">
+                    Неактивен
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Event Status + Done -->
+        <div class="onboarding-step" data-step="3">
+            <div class="onboarding-icon">🎉</div>
+            <h2>x2 Событие</h2>
+            <p>Сейчас активно x2 событие? Оно тоже удваивает BP.</p>
+            <div class="onboarding-toggle-group">
+                <div class="badge badge-inactive" id="onboarding-event-badge"
+                     role="button" tabindex="0"
+                     onclick="onboardingToggleEvent()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();onboardingToggleEvent()}">
+                    Неактивно
+                </div>
+            </div>
+            <p class="onboarding-hint">Вы всегда можете изменить эти настройки на странице ⚙️ Настройки.</p>
+        </div>
+
+        <!-- Navigation buttons -->
+        <div class="onboarding-nav">
+            <button class="btn btn-secondary" id="onboarding-skip" onclick="onboardingSkip()">Пропустить</button>
+            <div class="onboarding-nav-right">
+                <button class="btn btn-secondary" id="onboarding-back" onclick="onboardingBack()" style="display: none;">Назад</button>
+                <button class="btn btn-primary" id="onboarding-next" onclick="onboardingNext()">Далее</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

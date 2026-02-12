@@ -1,0 +1,46 @@
+{% if is_returning_user %}
+<!-- Returning User Reminder Modal -->
+<div class="onboarding-overlay" id="reminder-overlay">
+    <div class="onboarding-modal">
+        <div class="onboarding-icon">👋</div>
+        <h2>С возвращением!</h2>
+        <p>Вы давно не заходили. Проверьте, актуальны ли ваши настройки:</p>
+
+        <div class="reminder-settings">
+            <div class="reminder-row">
+                <span class="reminder-label">💰 Баланс BP</span>
+                <div class="balance-control">
+                    <input type="number" id="reminder-balance"
+                           min="0" max="{{ max_balance }}" value="{{ balance }}">
+                    <span class="onboarding-unit">BP</span>
+                </div>
+            </div>
+            <div class="reminder-row">
+                <span class="reminder-label">⭐ VIP Статус</span>
+                <div class="badge {{ 'badge-vip' if vip_status else 'badge-inactive' }}" id="reminder-vip-badge"
+                     role="button" tabindex="0"
+                     onclick="reminderToggleVIP()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();reminderToggleVIP()}">
+                    {{ '⭐ Активен' if vip_status else 'Неактивен' }}
+                </div>
+            </div>
+            <div class="reminder-row">
+                <span class="reminder-label">🎉 x2 Событие</span>
+                <div class="badge {{ 'badge-event' if event_active else 'badge-inactive' }}" id="reminder-event-badge"
+                     role="button" tabindex="0"
+                     onclick="reminderToggleEvent()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();reminderToggleEvent()}">
+                    {{ '🎉 Активно' if event_active else 'Неактивно' }}
+                </div>
+            </div>
+        </div>
+
+        <p class="onboarding-hint">Вы всегда можете изменить настройки на странице ⚙️ Настройки.</p>
+
+        <div class="onboarding-nav">
+            <button class="btn btn-secondary" onclick="reminderDismiss(false)">Всё верно</button>
+            <button class="btn btn-primary" onclick="reminderDismiss(true)">Сохранить</button>
+        </div>
+    </div>
+</div>
+{% endif %}
