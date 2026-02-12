@@ -338,3 +338,24 @@ def test_ensure_user_exists(db):
     db.set_user_bp_balance(user_id, 100)
     db.ensure_user_exists(user_id)
     assert db.get_user_bp_balance(user_id) == 100
+
+
+# ============================================================================
+# last_login_at
+# ============================================================================
+
+
+def test_update_and_get_last_login(db):
+    """Round-trip: ensure_user → update → get returns valid ISO."""
+    user_id = 17001
+    db.ensure_user_exists(user_id)
+    db.update_last_login(user_id)
+
+    last_login = db.get_last_login(user_id)
+    assert last_login is not None
+    assert "T" in last_login  # ISO format
+
+
+def test_get_last_login_nonexistent_user(db):
+    """get_last_login for nonexistent user should return None."""
+    assert db.get_last_login(99999) is None

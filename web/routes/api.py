@@ -546,11 +546,27 @@ def complete_onboarding() -> Response | tuple[Response, int]:
 
     try:
         db.ensure_user_exists(user_id)
+        db.update_last_login(user_id)
         logger.info(f"User {user_id} completed onboarding (skip)")
         return api_success()
     except Exception:
         logger.exception(f"Error completing onboarding for user {user_id}")
         return api_error("Failed to complete onboarding", 500)
+
+
+# ============================================================================
+# Returning User Reminder
+# ============================================================================
+
+
+@api_bp.route("/dismiss_reminder", methods=["POST"])
+@require_auth
+@rate_limit(max_requests=10, window_seconds=60)
+def dismiss_reminder() -> Response | tuple[Response, int]:
+    """Dismiss the returning-user reminder and clear the session flag."""
+    session.pop("show_returning_reminder", None)
+    logger.info(f"User {session['user']['id']} dismissed returning reminder")
+    return api_success()
 
 
 # ============================================================================

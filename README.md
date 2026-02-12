@@ -18,6 +18,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Hidden Activities** — Hide irrelevant activities from your dashboard
 - **Activity Reset** — Clear all today's completions without changing BP balance
 - **First-Login Onboarding** — 3-step modal guides new users through setting BP balance, VIP, and event status
+- **Returning-User Reminder** — Users inactive for 14+ days see a single-screen modal to verify their balance, VIP, and event settings
 
 ### Web Dashboard
 - **Discord OAuth2 Login** — Secure authentication with your Discord account
@@ -33,7 +34,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Database Indexing** — Optimized queries for fast performance
 - **WAL Mode** — Better concurrent access for web server
 - **Docker Support** — `docker-compose up --build` for containerized deployment
-- **74 Tests** — Database, API, validation, and helper test coverage
+- **84 Tests** — Database, API, validation, and helper test coverage
 
 ## Quick Start
 
@@ -281,7 +282,7 @@ Body: {"event_status": true}
 
 The application uses SQLite with the following tables:
 
-- **users** — VIP status (`vip_status`), BP balance (`bp_balance`), event flag (`event_active`)
+- **users** — VIP status (`vip_status`), BP balance (`bp_balance`), event flag (`event_active`), last login timestamp (`last_login_at`)
 - **activities** — Daily activity completions with `completed_at` timestamp and `bp_earned` snapshot. UNIQUE on `(user_id, activity_id, date)`
 - **repeatable_completions** — Multiple completions per activity per day (e.g. "3 hours online"). Each row stores `bp_earned` and `completed_at`
 - **hidden_activities** — Per-user hidden activity preferences
@@ -366,7 +367,7 @@ Edit `web/activities.py` — append to the `ACTIVITIES` list:
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v    # 74 tests
+pytest tests/ -v    # 84 tests
 ruff check web/     # Linter
 ```
 

@@ -1,6 +1,7 @@
 """Tests for API endpoints."""
 
 import json
+from datetime import datetime, timedelta, timezone
 
 
 def test_toggle_activity_unauthenticated(client):
@@ -538,3 +539,65 @@ def test_dashboard_hides_onboarding_for_existing_user(auth_session):
     response = auth_session.get("/dashboard")
     assert response.status_code == 200
     assert b"onboarding-overlay" not in response.data
+
+
+# ============================================================================
+# Returning User Reminder
+# ============================================================================
+
+
+def test_dismiss_reminder_success(auth_session):
+    """POST /api/dismiss_reminder should return success."""
+    response = auth_session.post(
+        "/api/dismiss_reminder",
+        content_type="application/json",
+    )
+    data = json.loads(response.data)
+    assert data["success"] is True
+
+
+def test_dismiss_reminder_unauthenticated(client):
+    """Unauthenticated dismiss_reminder should redirect to login."""
+    response = client.post(
+        "/api/dismiss_reminder",
+        content_type="application/json",
+    )
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_dashboard_shows_reminder_for_returning_user(auth_session):
+    """Dashboard should show reminder-overlay when session flag is set."""
+    from web.app import db as app_db
+
+    user_id = 123456789  # Same as auth_session fixture
+
+    # Create user with old last_login
+    app_db.ensure_user_exists(user_id)
+    old_time = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+    with app_db.get_cursor() as cursor:
+        cursor.execute(
+            "UPDATE users SET last_login_at = ? WHERE user_id = ?",
+            (old_time, str(user_id)),
+        )
+
+    # Set the session flag (simulating what /callback would do)
+    with auth_session.session_transaction() as sess:
+        sess["show_returning_reminder"] = True
+
+    response = auth_session.get("/dashboard")
+    assert response.status_code == 200
+    assert b"reminder-overlay" in response.data
+
+
+def test_dashboard_no_reminder_for_recent_user(auth_session):
+    """Dashboard should NOT show reminder for recently logged in user."""
+    from web.app import db as app_db
+
+    user_id = 123456789
+    app_db.ensure_user_exists(user_id)
+    app_db.update_last_login(user_id)
+
+    response = auth_session.get("/dashboard")
+    assert response.status_code == 200
+    assert b"reminder-overlay" not in response.data
