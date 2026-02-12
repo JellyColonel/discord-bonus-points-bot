@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from datetime import datetime, timezone
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -14,6 +15,9 @@ from web.database import get_today_date
 
 if TYPE_CHECKING:
     from web.database import Database
+
+# Threshold for showing the returning-user reminder (days since last login)
+RETURNING_USER_THRESHOLD_DAYS = 14
 
 
 # ============================================================================
@@ -157,6 +161,41 @@ def calculate_bp(activity: dict, vip_status: bool, event_active: bool) -> int:
 
 
 # ============================================================================
+# Returning User Detection
+# ============================================================================
+
+
+def is_returning_user(db: Database, user_id: int) -> bool:
+    """Check if user should see the returning-user reminder.
+
+    Returns True if the user exists but hasn't logged in for 14+ days.
+    Returns False for new users (onboarding takes priority) or recent logins.
+
+    Must be called BEFORE updating last_login_at in the callback.
+
+    Args:
+        db: Database instance
+        user_id: User's Discord ID
+
+    Returns:
+        True if user should see the returning reminder
+    """
+    if not db.user_exists(user_id):
+        return False
+
+    last_login = db.get_last_login(user_id)
+    if last_login is None:
+        # Existing user with no timestamp (shouldn't happen after migration,
+        # but treat as returning to be safe)
+        return True
+
+    last_login_dt = datetime.fromisoformat(last_login)
+    now = datetime.now(timezone.utc)
+    days_since = (now - last_login_dt).days
+    return days_since >= RETURNING_USER_THRESHOLD_DAYS
+
+
+# ============================================================================
 # Hidden Activities Logic
 # ============================================================================
 
@@ -263,6 +302,8 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
         int((visible_completed / visible_total) * 100) if visible_total > 0 else 0
     )
 
+    is_new = not db.user_exists(user_id)
+
     return {
         "activities": activities_with_status,
         "vip_status": vip_status,
@@ -274,7 +315,8 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
         "progress_percentage": progress_percentage,
         "event_active": event_active,
         "hidden_activities": hidden_activities,
-        "is_new_user": not db.user_exists(user_id),
+        "is_new_user": is_new,
+        "is_returning_user": False if is_new else session.get("show_returning_reminder", False),
     }
 
 

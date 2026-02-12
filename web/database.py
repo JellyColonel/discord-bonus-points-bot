@@ -131,13 +131,14 @@ class Database:
         try:
             cursor = conn.cursor()
 
-            # Users table with bp_balance and event_active columns
+            # Users table with bp_balance, event_active, and last_login_at columns
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     user_id TEXT PRIMARY KEY,
                     vip_status INTEGER DEFAULT 0,
                     bp_balance INTEGER DEFAULT 0,
-                    event_active INTEGER DEFAULT 0
+                    event_active INTEGER DEFAULT 0,
+                    last_login_at TEXT
                 )
             """)
             logger.debug("Users table created/verified")
@@ -161,6 +162,22 @@ class Database:
             except sqlite3.OperationalError:
                 # Column already exists
                 logger.debug("event_active column already exists")
+
+            # Try to add last_login_at column to existing users table
+            try:
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN last_login_at TEXT"
+                )
+                # Backfill existing users so they don't false-trigger the reminder
+                now_utc = datetime.now(timezone.utc).isoformat()
+                cursor.execute(
+                    "UPDATE users SET last_login_at = ? WHERE last_login_at IS NULL",
+                    (now_utc,),
+                )
+                logger.info("Added last_login_at column to users table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                logger.debug("last_login_at column already exists")
 
             # Activities table
             cursor.execute("""
@@ -301,6 +318,32 @@ class Database:
                 "INSERT OR IGNORE INTO users (user_id) VALUES (?)",
                 (str(user_id),),
             )
+
+    # =========================================================================
+    # Last Login methods
+    # =========================================================================
+
+    def update_last_login(self, user_id: int) -> None:
+        """Update user's last login timestamp to now (UTC)."""
+        now_utc = datetime.now(timezone.utc).isoformat()
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                "UPDATE users SET last_login_at = ? WHERE user_id = ?",
+                (now_utc, str(user_id)),
+            )
+        logger.debug(f"Updated last_login_at for user {user_id}")
+
+    def get_last_login(self, user_id: int) -> Optional[str]:
+        """Get user's last login timestamp as ISO string, or None."""
+        with self.get_cursor(commit=False) as cursor:
+            cursor.execute(
+                "SELECT last_login_at FROM users WHERE user_id = ?",
+                (str(user_id),),
+            )
+            result = cursor.fetchone()
+            last_login = result[0] if result else None
+            logger.debug(f"User {user_id} last_login_at: {last_login}")
+            return last_login
 
     # =========================================================================
     # User VIP methods

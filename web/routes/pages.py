@@ -5,7 +5,7 @@ import logging
 from flask import Blueprint, Response, redirect, render_template, request, session, url_for
 
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth, verify_oauth_state
-from web.helpers import prepare_dashboard_data, prepare_settings_data
+from web.helpers import is_returning_user, prepare_dashboard_data, prepare_settings_data
 from web.validation import MAX_BALANCE
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,15 @@ def callback() -> Response | tuple[str, int]:
         }
         session.permanent = True
 
+        # Check returning user BEFORE updating timestamp (order matters)
+        db = _get_db()
+        user_id = int(user_info["id"])
+        if db.user_exists(user_id):
+            session["show_returning_reminder"] = is_returning_user(db, user_id)
+            db.update_last_login(user_id)
+        else:
+            session["show_returning_reminder"] = False
+
         logger.info(f"User {user_info['username']} logged in (ID: {user_info['id']})")
         return redirect(url_for("pages.dashboard"))
 
@@ -109,6 +118,7 @@ def dashboard() -> str:
         progress_percentage=data["progress_percentage"],
         event_active=data["event_active"],
         is_new_user=data["is_new_user"],
+        is_returning_user=data["is_returning_user"],
         max_balance=MAX_BALANCE,
     )
 
