@@ -310,4 +310,10 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% if is_new_user %}
+<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
+{% endif %}
+{% if is_returning_user %}
+<script src="{{ url_for('static', filename='js/reminder.js') }}"></script>
+{% endif %}
 {% endblock %}
