@@ -39,21 +39,23 @@ ruff check web/
 
 **Backend (Python/Flask):**
 - `web/app.py` — Flask app factory, registers blueprints, DB init, teardown (~60 lines)
-- `web/routes/pages.py` — Page routes: `/`, `/login`, `/callback`, `/logout`, `/dashboard`, `/settings`
+- `web/routes/pages.py` — Page routes: `/`, `/login`, `/callback`, `/logout`, `/dashboard`, `/settings`, `/recipes`
 - `web/routes/api.py` — API routes: all `/api/*` JSON endpoints (toggle, repeatable, balance, VIP, event, hide/unhide, reset, stats, complete_onboarding, dismiss_reminder)
 - `web/middleware.py` — Request logging (before/after), session refresh
 - `web/validation.py` — Input validators (`validate_activity_id`, `validate_boolean`, `validate_integer`), API response helpers (`api_success`, `api_error`), `MAX_BALANCE` constant
 - `web/auth.py` — Discord OAuth2 flow (`get_oauth_url`, `exchange_code`, `get_user_info`, `require_auth` decorator, `state` CSRF protection)
 - `web/config.py` — `WebConfig` class reads from `.env` via python-dotenv; validates required vars on import
 - `web/database.py` — `Database` class wrapping SQLite with thread-local connections, WAL mode, atomic BP operations, repeatable completions, activity reset, user existence checks, last login tracking
-- `web/helpers.py` — Rate limiting (in-memory sliding window), BP calculation, dashboard/settings data preparation (including repeatable + timestamp flow), onboarding detection, returning-user detection
+- `web/helpers.py` — Rate limiting (in-memory sliding window), BP calculation, dashboard/settings/recipes data preparation (including repeatable + timestamp flow), onboarding detection, returning-user detection
 - `web/activities.py` — Activity definitions list (`ACTIVITIES`) with cached O(1) lookup by ID, `is_repeatable()` helper
+- `web/recipes.py` — Recipe/ingredient definitions, cached O(1) lookups, dependency resolution (`get_sub_recipes`, `get_shopping_list`, `get_all_tools`), validation at import time
 
 **Frontend (vanilla JS + Jinja2 templates):**
 - `web/templates/base.html` — Base layout (navbar, footer, loads `common.js`)
 - `web/templates/login.html` — Login page with Discord OAuth2 button
 - `web/templates/dashboard.html` — Main activity dashboard (compact control panel + tabs, repeatable +/- cards, timestamps, help tooltips)
 - `web/templates/settings.html` — Settings page (VIP, events, balance, hidden activities, activity reset)
+- `web/templates/recipes.html` — Recipes page (card grid, search, expandable detail with step tabs)
 - `web/templates/partials/onboarding_modal.html` — Onboarding modal partial (3-step new-user flow)
 - `web/templates/partials/reminder_modal.html` — Returning-user reminder modal partial
 - `web/templates/errors/404.html`, `web/templates/errors/500.html` — Custom error pages
@@ -62,18 +64,21 @@ ruff check web/
 - `web/static/js/onboarding.js` — Onboarding modal flow (self-initializing, loaded conditionally for new users)
 - `web/static/js/reminder.js` — Returning-user reminder flow (self-initializing, loaded conditionally)
 - `web/static/js/settings.js` — Settings page logic (VIP/event toggle, balance, hide/unhide, reset today's activities)
+- `web/static/js/recipes.js` — Recipes page logic (search, expand/collapse detail, step tab switching)
 - `web/static/css/base.css` — Shared styles: variables, navigation, buttons, badges, loading, footer, toasts
 - `web/static/css/dashboard.css` — Dashboard page: control panel, tabs, activity cards, filters, empty state
 - `web/static/css/settings.css` — Settings page: sections, items, activity list
 - `web/static/css/login.css` — Login page: features list
 - `web/static/css/onboarding.css` — Onboarding + returning-user reminder modals
+- `web/static/css/recipes.css` — Recipes page: card grid, detail panel, step tabs, summary panels
 
-**Tests (84 total):**
+**Tests (133 total):**
 - `tests/conftest.py` — Fixtures: temp DB, Flask test client, authenticated session
 - `tests/test_database.py` — Database operation tests (atomicity, floor, idempotency, timestamps, repeatable completions, reset, settings, hidden check, close connection, user existence, last login)
-- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, cap enforcement, reset, missing body, hidden rejection, VIP/event BP multipliers, user_data, activity_bp_values, onboarding, returning-user reminder)
+- `tests/test_api.py` — API endpoint tests (auth, validation, rate limiting, timestamps, repeatable activity, cap enforcement, reset, missing body, hidden rejection, VIP/event BP multipliers, user_data, activity_bp_values, onboarding, returning-user reminder, recipes page)
 - `tests/test_validation.py` — Input validator tests (activity_id format, boolean coercion, integer range)
-- `tests/test_helpers.py` — Helper function tests (BP calculation with multipliers, activity visibility, hidden ID sets, returning-user detection)
+- `tests/test_helpers.py` — Helper function tests (BP calculation with multipliers, activity visibility, hidden ID sets, returning-user detection, recipes data preparation)
+- `tests/test_recipes.py` — Recipe data model tests (data integrity, lookups, sub-recipes, shopping list, tools, validation error paths)
 
 **Data:** SQLite DB at `data/bonus_points.db` (gitignored). Tables: `users` (includes `last_login_at`), `activities`, `hidden_activities`, `settings`, `repeatable_completions`.
 
@@ -92,6 +97,7 @@ ruff check web/
 - **Activity reset:** Per-user self-reset on settings page clears all completions (regular + repeatable) for today WITHOUT modifying BP balance.
 - **Onboarding detection:** First-login users (no row in `users` table) see a 3-step onboarding modal on dashboard: set BP balance → set VIP status → set event status. Completion calls `/api/complete_onboarding` which sets all three at once. Detected via `database.user_exists()` + `helpers.is_new_user()`.
 - **Returning-user reminder:** Users who haven't logged in for 14+ days see a single-screen modal with pre-filled balance, VIP, and event settings. The check uses a session-based flag: `is_returning_user()` is evaluated in `/callback` BEFORE `update_last_login()`, result stored in `session["show_returning_reminder"]`, read later in `prepare_dashboard_data()`. This avoids the race condition where the freshly-updated timestamp would always read as "just now".
+- **Recipes page (read-only, no DB):** All recipe data lives in `web/recipes.py` as Python lists — no database tables. `prepare_recipes_data()` pre-computes sub-recipe trees, shopping lists, and tool sets server-side, then passes the result to the template as a JSON blob. JS reads it to build the detail panel on click — no API calls needed. Recipes can reference other recipes as ingredients (chaining). `validate_recipes()` runs at import time to catch duplicate IDs, unresolved refs, and cycles.
 
 ## API Response Format
 
@@ -118,6 +124,25 @@ Fields:
 - `repeatable` (optional bool) — if `True`, uses +/- counter UI and separate DB table
 - `max_completions` (optional int) — daily cap for repeatable activities; enforced server-side, "+" button disables at cap
 
+## Adding Recipes
+
+Edit `web/recipes.py`:
+
+**To add an ingredient**, append to the `INGREDIENTS` list:
+```python
+{"id": "potato", "name": "Картофель", "type": "store"}
+```
+Types: `"tool"` (reusable), `"store"` (purchased), `"default"` (free, e.g. water).
+
+**To add a recipe**, append to the `RECIPES` list:
+```python
+{"id": "mashed_potato", "name": "Пюре", "ingredients": ["potato", "milk", "butter"], "tools": ["fire"]}
+```
+- `ingredients` — list of IDs from `INGREDIENTS` or other `RECIPES` (chaining)
+- `tools` — list of tool-type ingredient IDs
+- All quantities are 1 per ingredient per step (matches game mechanic)
+- `validate_recipes()` runs at import and catches: duplicate IDs, unresolved refs, non-tool tool refs, cycles
+
 ## Git Workflow
 
 - Never commit directly to main — always create a branch with the appropriate prefix
@@ -131,5 +156,4 @@ Fields:
 ## Planned Features
 
 1. **Daily completion history (maybe).** Show a per-day log of completed activities — potentially a simple history view or timeline.
-2. **Recipes page.** A new section with in-game recipes and step-by-step instructions, preferably with pictures. Not directly BP-related — this could evolve the app from a BP tracker into a broader companion tool for the group.
-3. **Global CLAUDE.md sync.** Create a private git repo for `~/.claude/CLAUDE.md` (and other config), symlink on each machine. Keeps global instructions portable across PCs.
+2. **Global CLAUDE.md sync.** Create a private git repo for `~/.claude/CLAUDE.md` (and other config), symlink on each machine. Keeps global instructions portable across PCs.

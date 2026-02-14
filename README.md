@@ -19,6 +19,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Activity Reset** — Clear all today's completions without changing BP balance
 - **First-Login Onboarding** — 3-step modal guides new users through setting BP balance, VIP, and event status
 - **Returning-User Reminder** — Users inactive for 14+ days see a single-screen modal to verify their balance, VIP, and event settings
+- **Recipes Page** — Browse in-game cooking recipes with ingredient trees, step-by-step sub-recipes, shopping lists, and tool requirements
 
 ### Web Dashboard
 - **Discord OAuth2 Login** — Secure authentication with your Discord account
@@ -34,7 +35,7 @@ A web dashboard for tracking daily bonus points activities. Features VIP support
 - **Database Indexing** — Optimized queries for fast performance
 - **WAL Mode** — Better concurrent access for web server
 - **Docker Support** — `docker-compose up --build` for containerized deployment
-- **84 Tests** — Database, API, validation, and helper test coverage
+- **133 Tests** — Database, API, validation, helper, and recipe test coverage
 
 ## Quick Start
 
@@ -299,17 +300,19 @@ bonus_points_bot/
 │   ├── config.py              # WebConfig from .env
 │   ├── database.py            # Database class (SQLite, thread-local, WAL)
 │   ├── activities.py          # Activity definitions + cached lookups
+│   ├── recipes.py             # Recipe/ingredient definitions + dependency resolution
 │   ├── helpers.py             # Rate limiting, BP calc, data preparation
 │   ├── middleware.py          # Request logging, session refresh
 │   ├── validation.py          # Input validators, API response helpers
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   ├── pages.py           # Page routes (login, dashboard, settings)
+│   │   ├── pages.py           # Page routes (login, dashboard, settings, recipes)
 │   │   └── api.py             # API routes (/api/* JSON endpoints)
 │   ├── templates/
 │   │   ├── base.html          # Base layout (navbar, footer)
 │   │   ├── dashboard.html     # Activity dashboard (tabs, cards, filters)
 │   │   ├── settings.html      # Settings page (VIP, balance, reset)
+│   │   ├── recipes.html       # Recipes page (card grid, detail panel)
 │   │   ├── login.html         # Login page
 │   │   ├── partials/
 │   │   │   ├── onboarding_modal.html  # New-user onboarding modal
@@ -323,20 +326,23 @@ bonus_points_bot/
 │       │   ├── dashboard.css  # Dashboard: stats, tabs, cards, filters
 │       │   ├── settings.css   # Settings: sections, items, activity list
 │       │   ├── login.css      # Login: features list
-│       │   └── onboarding.css # Onboarding + reminder modals
+│       │   ├── onboarding.css # Onboarding + reminder modals
+│       │   └── recipes.css   # Recipes: card grid, detail, step tabs
 │       └── js/
 │           ├── common.js      # Shared utilities (CSRF, loading, toasts)
 │           ├── dashboard.js   # Dashboard logic (toggle, filter, repeat)
 │           ├── onboarding.js  # Onboarding modal flow (new users)
 │           ├── reminder.js    # Returning-user reminder flow
-│           └── settings.js    # Settings logic (VIP, balance, reset)
+│           ├── settings.js    # Settings logic (VIP, balance, reset)
+│           └── recipes.js    # Recipes logic (search, detail, tabs)
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py            # Fixtures (temp DB, test client, auth)
 │   ├── test_database.py       # DB operation tests
 │   ├── test_api.py            # API endpoint tests
 │   ├── test_validation.py     # Input validator tests
-│   └── test_helpers.py        # Helper function tests
+│   ├── test_helpers.py        # Helper function tests
+│   └── test_recipes.py        # Recipe data model tests
 ├── data/                      # Runtime data (gitignored)
 │   └── bonus_points.db
 ├── logs/                      # Log files (gitignored)
@@ -376,7 +382,7 @@ Edit `web/activities.py` — append to the `ACTIVITIES` list:
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v    # 84 tests
+pytest tests/ -v    # 133 tests
 ruff check web/     # Linter
 ```
 
