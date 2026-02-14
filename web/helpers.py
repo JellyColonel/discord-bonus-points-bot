@@ -39,9 +39,7 @@ def _cleanup_old_requests(user_id: str, window_seconds: int) -> None:
         return
     now = time.time()
     cutoff = now - window_seconds
-    _rate_limit_store[user_id] = [
-        ts for ts in _rate_limit_store[user_id] if ts > cutoff
-    ]
+    _rate_limit_store[user_id] = [ts for ts in _rate_limit_store[user_id] if ts > cutoff]
     if not _rate_limit_store[user_id]:
         del _rate_limit_store[user_id]
 
@@ -120,9 +118,7 @@ def get_rate_limit_stats() -> Dict[str, int]:
     Returns:
         Dictionary mapping rate keys (user_id:endpoint) to their current request count
     """
-    return {
-        key: len(timestamps) for key, timestamps in _rate_limit_store.items()
-    }
+    return {key: len(timestamps) for key, timestamps in _rate_limit_store.items()}
 
 
 # ============================================================================
@@ -264,9 +260,7 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     completed_with_bp = db.get_user_completed_activities_with_bp(user_id, today)
     completed_activities_list = [item[0] for item in completed_with_bp]
 
-    completed_bp_map = {
-        item[0]: item[1] for item in completed_with_bp
-    }  # activity_id -> bp_earned
+    completed_bp_map = {item[0]: item[1] for item in completed_with_bp}  # activity_id -> bp_earned
     completed_at_map = {
         item[0]: item[2] for item in completed_with_bp
     }  # activity_id -> completed_at
@@ -298,9 +292,7 @@ def prepare_dashboard_data(db: Database, user_id: int) -> Dict[str, Any]:
     )
 
     # Calculate progress (only visible activities)
-    progress_percentage = (
-        int((visible_completed / visible_total) * 100) if visible_total > 0 else 0
-    )
+    progress_percentage = int((visible_completed / visible_total) * 100) if visible_total > 0 else 0
 
     is_new = not db.user_exists(user_id)
 
@@ -449,6 +441,119 @@ def _calculate_totals(
 # ============================================================================
 # Settings Page Data
 # ============================================================================
+
+
+def prepare_recipes_data() -> Dict[str, Any]:
+    """Prepare pre-computed recipe data for the recipes page template.
+
+    Builds a JSON-serializable structure with each recipe's sub-recipe steps,
+    shopping list, and tool requirements already resolved server-side.
+
+    Returns:
+        Dictionary containing ingredients, recipes with pre-computed details
+    """
+    from web.recipes import (
+        get_all_ingredients,
+        get_all_recipes,
+        get_all_tools,
+        get_recipe_by_id,
+        get_shopping_list,
+        get_sub_recipes,
+        is_recipe,
+    )
+
+    ingredients_by_id = {ing["id"]: ing for ing in get_all_ingredients()}
+
+    recipes_data = []
+    for recipe in get_all_recipes():
+        rid = recipe["id"]
+
+        # Sub-recipe steps (topological order)
+        sub_recipes = get_sub_recipes(rid)
+        steps = []
+        for sub in sub_recipes:
+            steps.append(
+                {
+                    "id": sub["id"],
+                    "name": sub["name"],
+                    "ingredients": [
+                        {
+                            "id": ing_id,
+                            "name": get_recipe_by_id(ing_id)["name"]
+                            if is_recipe(ing_id)
+                            else ingredients_by_id.get(ing_id, {}).get("name", ing_id),
+                            "is_recipe": is_recipe(ing_id),
+                        }
+                        for ing_id in sub["ingredients"]
+                    ],
+                    "tools": [
+                        {
+                            "id": t,
+                            "name": ingredients_by_id.get(t, {}).get("name", t),
+                        }
+                        for t in sub.get("tools", [])
+                    ],
+                }
+            )
+
+        # Final assembly step (the recipe itself)
+        final_step = {
+            "id": rid,
+            "name": recipe["name"],
+            "ingredients": [
+                {
+                    "id": ing_id,
+                    "name": get_recipe_by_id(ing_id)["name"]
+                    if is_recipe(ing_id)
+                    else ingredients_by_id.get(ing_id, {}).get("name", ing_id),
+                    "is_recipe": is_recipe(ing_id),
+                }
+                for ing_id in recipe["ingredients"]
+            ],
+            "tools": [
+                {
+                    "id": t,
+                    "name": ingredients_by_id.get(t, {}).get("name", t),
+                }
+                for t in recipe.get("tools", [])
+            ],
+        }
+
+        # Shopping list
+        shopping = get_shopping_list(rid)
+        shopping_list = [
+            {
+                "id": ing_id,
+                "name": ingredients_by_id.get(ing_id, {}).get("name", ing_id),
+                "count": count,
+            }
+            for ing_id, count in shopping.items()
+        ]
+
+        # All tools across all steps
+        all_tools = get_all_tools(rid)
+        tools_list = [
+            {
+                "id": t,
+                "name": ingredients_by_id.get(t, {}).get("name", t),
+            }
+            for t in all_tools
+        ]
+
+        recipes_data.append(
+            {
+                "id": rid,
+                "name": recipe["name"],
+                "step_count": len(sub_recipes) + 1,
+                "store_count": len(shopping),
+                "steps": steps,
+                "final_step": final_step,
+                "shopping_list": shopping_list,
+                "all_tools": tools_list,
+            }
+        )
+
+    return {"recipes": recipes_data}
 
 
 def prepare_settings_data(db: Database, user_id: int) -> Dict[str, Any]:

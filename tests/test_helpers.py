@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta, timezone
 
 from web.helpers import (
-    RETURNING_USER_THRESHOLD_DAYS,
     calculate_bp,
     get_hidden_activity_ids,
     is_activity_visible,
@@ -142,3 +141,87 @@ def test_is_returning_user_boundary(db):
         )
 
     assert is_returning_user(db, user_id_13) is False
+
+
+# ============================================================================
+# prepare_recipes_data
+# ============================================================================
+
+
+def test_prepare_recipes_data_returns_recipes():
+    """Should return a dict with 'recipes' key containing all recipes."""
+    from web.helpers import prepare_recipes_data
+    from web.recipes import RECIPES
+
+    data = prepare_recipes_data()
+    assert "recipes" in data
+    assert len(data["recipes"]) == len(RECIPES)
+
+
+def test_prepare_recipes_data_simple_recipe():
+    """Simple recipe (no sub-recipes) should have 1 step and empty steps list."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    # Find scrambled_eggs (a simple recipe)
+    scrambled = next(r for r in data["recipes"] if r["id"] == "scrambled_eggs")
+
+    assert scrambled["step_count"] == 1
+    assert scrambled["steps"] == []
+    assert scrambled["final_step"]["id"] == "scrambled_eggs"
+    assert len(scrambled["final_step"]["ingredients"]) == 3
+    assert len(scrambled["final_step"]["tools"]) == 1
+
+
+def test_prepare_recipes_data_chained_recipe():
+    """Chained recipe should have sub-recipe steps in order."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    # mac_and_cheese → macaroni → dough (2 sub-steps + 1 final = 3 steps)
+    mac = next(r for r in data["recipes"] if r["id"] == "mac_and_cheese")
+
+    assert mac["step_count"] == 3
+    assert len(mac["steps"]) == 2
+    step_ids = [s["id"] for s in mac["steps"]]
+    assert step_ids.index("dough") < step_ids.index("macaroni")
+    assert mac["final_step"]["id"] == "mac_and_cheese"
+
+
+def test_prepare_recipes_data_shopping_list():
+    """Shopping list should contain only store-type ingredients."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    lemonade = next(r for r in data["recipes"] if r["id"] == "lemonade")
+
+    shopping_ids = {item["id"] for item in lemonade["shopping_list"]}
+    assert "lemon" in shopping_ids
+    assert "sugar" in shopping_ids
+    assert "water" not in shopping_ids  # default type, not store
+
+
+def test_prepare_recipes_data_all_tools():
+    """All tools should include tools from sub-recipes."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    macaroni = next(r for r in data["recipes"] if r["id"] == "macaroni")
+
+    tool_ids = {t["id"] for t in macaroni["all_tools"]}
+    assert tool_ids == {"whisk", "knife", "fire"}
+
+
+def test_prepare_recipes_data_ingredient_is_recipe_flag():
+    """Ingredients that are recipes should have is_recipe=True."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    macaroni = next(r for r in data["recipes"] if r["id"] == "macaroni")
+
+    ings = macaroni["final_step"]["ingredients"]
+    dough_ing = next(i for i in ings if i["id"] == "dough")
+    water_ing = next(i for i in ings if i["id"] == "water")
+
+    assert dough_ing["is_recipe"] is True
+    assert water_ing["is_recipe"] is False

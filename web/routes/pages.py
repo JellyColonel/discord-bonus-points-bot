@@ -5,7 +5,12 @@ import logging
 from flask import Blueprint, Response, redirect, render_template, request, session, url_for
 
 from web.auth import exchange_code, get_oauth_url, get_user_info, require_auth, verify_oauth_state
-from web.helpers import is_returning_user, prepare_dashboard_data, prepare_settings_data
+from web.helpers import (
+    is_returning_user,
+    prepare_dashboard_data,
+    prepare_recipes_data,
+    prepare_settings_data,
+)
 from web.validation import MAX_BALANCE
 
 logger = logging.getLogger(__name__)
@@ -15,6 +20,7 @@ pages_bp = Blueprint("pages", __name__)
 
 def _get_db():
     from web.app import db
+
     return db
 
 
@@ -141,4 +147,18 @@ def settings() -> str:
         event_active=data["event_active"],
         balance=data["balance"],
         max_balance=MAX_BALANCE,
+    )
+
+
+@pages_bp.route("/recipes")
+@require_auth
+def recipes() -> str:
+    """Recipes page with ingredient trees and shopping lists."""
+    user = session["user"]
+    data = prepare_recipes_data()
+
+    return render_template(
+        "recipes.html",
+        user=user,
+        recipes_data=data,
     )
