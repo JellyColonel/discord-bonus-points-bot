@@ -20,6 +20,7 @@
             {% if session.user %}
             <div class="nav-user">
                 <span class="username">{{ session.user.username }}</span>
+                <a href="{{ url_for('pages.recipes') }}" class="nav-icon-link" title="Рецепты">🍳</a>
                 <a href="{{ url_for('pages.settings') }}" class="nav-icon-link" title="Настройки">⚙️</a>
                 <a href="{{ url_for('pages.logout') }}" class="btn btn-secondary">Выйти</a>
             </div>

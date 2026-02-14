@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Рецепты - Бонусные Очки{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recipes.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="recipes-page">
+    <h2 class="page-title">🍳 Рецепты</h2>
+
+    <!-- Search -->
+    <div class="recipes-search">
+        <div class="search-box">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input type="text"
+                   id="recipe-search"
+                   placeholder="Поиск по названию или ингредиенту..."
+                   autocomplete="off"
+                   aria-label="Поиск рецептов">
+            <button class="search-clear" id="search-clear" style="display: none;">✕</button>
+        </div>
+        <div class="search-results-count" id="search-results-count">
+            <span id="visible-count">{{ recipes_data.recipes|length }}</span> из <span id="total-count">{{ recipes_data.recipes|length }}</span>
+        </div>
+    </div>
+
+    <!-- Recipe Grid -->
+    <div class="recipe-grid" id="recipe-grid">
+        {% for recipe in recipes_data.recipes %}
+        <div class="recipe-card" data-recipe-id="{{ recipe.id }}" data-index="{{ loop.index0 }}">
+            <div class="recipe-card-name">{{ recipe.name }}</div>
+            <div class="recipe-card-badges">
+                {% if recipe.step_count > 1 %}
+                <span class="recipe-badge recipe-badge-steps">📋 {{ recipe.step_count }} {{ "шаг" if recipe.step_count == 1 else ("шага" if recipe.step_count < 5 else "шагов") }}</span>
+                {% endif %}
+                {% if recipe.store_count > 0 %}
+                <span class="recipe-badge recipe-badge-shop">🛒 {{ recipe.store_count }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state" style="display: none;">
+        <div class="empty-icon">🔍</div>
+        <h3>Ничего не найдено</h3>
+        <p>Попробуйте изменить поисковый запрос</p>
+    </div>
+
+    <!-- Detail Panel (inserted dynamically by JS) -->
+    <div class="recipe-detail" id="recipe-detail" style="display: none;"></div>
+</div>
+
+<!-- Recipe data for JS -->
+<script type="application/json" id="recipes-json">{{ recipes_data | tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/recipes.js') }}"></script>
+{% endblock %}

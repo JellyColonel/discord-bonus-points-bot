@@ -213,9 +213,11 @@ def test_repeatable_activity_add_remove(auth_session):
 def test_repeatable_activity_cap_enforced(auth_session):
     """Repeatable activity should reject additions beyond max_completions."""
     from web.helpers import _rate_limit_store
+
     _rate_limit_store.clear()
 
     from web.activities import get_activity_by_id
+
     activity = get_activity_by_id("online_3h")
     max_completions = activity["max_completions"]
 
@@ -276,6 +278,7 @@ def test_reset_today_activities(auth_session):
     """Reset endpoint should clear completions."""
     # Clear rate limit store from previous tests
     from web.helpers import _rate_limit_store
+
     _rate_limit_store.clear()
 
     # Complete some activities first
@@ -429,6 +432,7 @@ def test_activity_bp_values_endpoint(auth_session):
 def test_vip_affects_bp_calculation(auth_session):
     """Enabling VIP should double BP earned on activity completion."""
     from web.helpers import _rate_limit_store
+
     _rate_limit_store.clear()
 
     # Enable VIP
@@ -464,6 +468,7 @@ def test_vip_affects_bp_calculation(auth_session):
 def test_event_affects_bp_calculation(auth_session):
     """Enabling event should double BP earned on activity completion."""
     from web.helpers import _rate_limit_store
+
     _rate_limit_store.clear()
 
     # Enable event
@@ -601,3 +606,25 @@ def test_dashboard_no_reminder_for_recent_user(auth_session):
     response = auth_session.get("/dashboard")
     assert response.status_code == 200
     assert b"reminder-overlay" not in response.data
+
+
+# ============================================================================
+# Recipes Page
+# ============================================================================
+
+
+def test_recipes_page_requires_auth(client):
+    """Unauthenticated requests should redirect to login."""
+    response = client.get("/recipes")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_recipes_page_renders(auth_session):
+    """Authenticated user should see the recipes page."""
+    response = auth_session.get("/recipes")
+    assert response.status_code == 200
+    assert b"recipes-json" in response.data
+    assert (
+        b"\xd0\xa0\xd0\xb5\xd1\x86\xd0\xb5\xd0\xbf\xd1\x82\xd1\x8b" in response.data
+    )  # "Рецепты" in UTF-8
