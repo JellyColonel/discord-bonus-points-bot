@@ -114,40 +114,46 @@ class TestLookups:
 class TestSubRecipes:
     def test_simple_recipe_no_sub_recipes(self):
         """A recipe with only base ingredients has no sub-recipes."""
-        subs = get_sub_recipes("scrambled_eggs")
+        subs = get_sub_recipes("fried_eggs")
         assert subs == []
 
     def test_one_level_chain(self):
-        """Macaroni depends on dough."""
-        subs = get_sub_recipes("macaroni")
+        """Bread depends on dough."""
+        subs = get_sub_recipes("bread")
         assert len(subs) == 1
         assert subs[0]["id"] == "dough"
 
     def test_two_level_chain(self):
-        """Mac and cheese → macaroni → dough."""
-        subs = get_sub_recipes("mac_and_cheese")
-        assert len(subs) == 2
+        """Cheese sandwich → bread → dough, + cheese (3 sub-recipes)."""
+        subs = get_sub_recipes("cheese_sandwich")
+        assert len(subs) == 3
         ids = [s["id"] for s in subs]
-        # Topological: dough before macaroni
-        assert ids.index("dough") < ids.index("macaroni")
+        # Topological: dough before bread
+        assert ids.index("dough") < ids.index("bread")
 
     def test_multi_branch_chain(self):
-        """Pasta with sauce → macaroni (→ dough) + tomato_sauce."""
-        subs = get_sub_recipes("pasta_with_sauce")
+        """Burger → bread (→ dough) + meat_cutlet (→ minced_meat + butter)."""
+        subs = get_sub_recipes("burger")
         ids = [s["id"] for s in subs]
         assert "dough" in ids
-        assert "macaroni" in ids
-        assert "tomato_sauce" in ids
-        assert ids.index("dough") < ids.index("macaroni")
+        assert "bread" in ids
+        assert "minced_meat" in ids
+        assert "butter" in ids
+        assert "meat_cutlet" in ids
+        assert ids.index("dough") < ids.index("bread")
+        assert ids.index("minced_meat") < ids.index("meat_cutlet")
+        assert ids.index("butter") < ids.index("meat_cutlet")
 
     def test_deep_chain(self):
-        """Pizza → pizza_dough (→ dough) + tomato_sauce."""
-        subs = get_sub_recipes("pizza")
+        """Caramel cheesecake → cheesecake (→ dough + cheese) + caramel."""
+        subs = get_sub_recipes("caramel_cheesecake")
         ids = [s["id"] for s in subs]
         assert "dough" in ids
-        assert "pizza_dough" in ids
-        assert "tomato_sauce" in ids
-        assert ids.index("dough") < ids.index("pizza_dough")
+        assert "cheese" in ids
+        assert "cheesecake" in ids
+        assert "caramel" in ids
+        assert ids.index("dough") < ids.index("cheesecake")
+        assert ids.index("cheese") < ids.index("cheesecake")
 
     def test_unknown_recipe_returns_empty(self):
         assert get_sub_recipes("nonexistent") == []
@@ -155,36 +161,35 @@ class TestSubRecipes:
 
 class TestShoppingList:
     def test_simple_recipe(self):
-        """Scrambled eggs: egg + salt + butter (all store)."""
-        shopping = get_shopping_list("scrambled_eggs")
-        assert shopping == {"egg": 1, "salt": 1, "butter": 1}
+        """Fried eggs: just egg (store)."""
+        shopping = get_shopping_list("fried_eggs")
+        assert shopping == {"egg": 1}
 
     def test_excludes_non_store(self):
-        """Lemonade has water (default) — should not appear in shopping list."""
-        shopping = get_shopping_list("lemonade")
+        """Vegetable smoothie has water (default) — not in shopping list."""
+        shopping = get_shopping_list("vegetable_smoothie")
         assert "water" not in shopping
-        assert shopping == {"lemon": 1, "sugar": 1}
+        assert shopping == {"vegetables": 1}
 
     def test_chained_recipe(self):
-        """Macaroni: dough(flour, water, egg) + water → flour + egg."""
-        shopping = get_shopping_list("macaroni")
+        """Bread: dough(flour, water, egg) → flour + egg (store only)."""
+        shopping = get_shopping_list("bread")
         assert shopping == {"flour": 1, "egg": 1}
 
     def test_deep_chain_aggregates(self):
-        """Mac and cheese needs macaroni ingredients + cheese + butter."""
-        shopping = get_shopping_list("mac_and_cheese")
-        assert shopping == {"flour": 1, "egg": 1, "cheese": 1, "butter": 1}
+        """Cheese sandwich needs bread ingredients + cheese ingredients."""
+        shopping = get_shopping_list("cheese_sandwich")
+        assert shopping == {"flour": 1, "egg": 1, "milk": 1}
 
     def test_multi_branch(self):
-        """Pasta with sauce combines macaroni + tomato_sauce ingredients."""
-        shopping = get_shopping_list("pasta_with_sauce")
+        """Burger combines bread + meat_cutlet + vegetables ingredients."""
+        shopping = get_shopping_list("burger")
         assert shopping == {
             "flour": 1,
             "egg": 1,
-            "tomato": 1,
-            "garlic": 1,
-            "onion": 1,
-            "salt": 1,
+            "meat": 1,
+            "milk": 1,
+            "vegetables": 1,
         }
 
     def test_unknown_recipe_returns_empty(self):
@@ -198,25 +203,25 @@ class TestShoppingList:
 
 class TestAllTools:
     def test_simple_recipe(self):
-        """Scrambled eggs needs only fire."""
-        tools = get_all_tools("scrambled_eggs")
+        """Fried eggs needs only fire."""
+        tools = get_all_tools("fried_eggs")
         assert tools == ["fire"]
 
     def test_chained_recipe(self):
-        """Macaroni needs whisk (from dough) + knife + fire."""
-        tools = get_all_tools("macaroni")
-        assert set(tools) == {"whisk", "knife", "fire"}
+        """Bread needs whisk (from dough) + fire."""
+        tools = get_all_tools("bread")
+        assert set(tools) == {"whisk", "fire"}
 
     def test_deep_chain(self):
-        """Mac and cheese: whisk + knife + fire (from macaroni chain) + fire."""
-        tools = get_all_tools("mac_and_cheese")
-        assert set(tools) == {"whisk", "knife", "fire"}
+        """Cheese sandwich: whisk (dough) + fire (bread, cheese) + knife."""
+        tools = get_all_tools("cheese_sandwich")
+        assert set(tools) == {"whisk", "fire", "knife"}
 
     def test_tool_order_is_stable(self):
         """Tools should appear in order of first encounter (depth-first)."""
-        tools = get_all_tools("macaroni")
-        # dough's whisk comes first, then macaroni's knife + fire
-        assert tools.index("whisk") < tools.index("knife")
+        tools = get_all_tools("bread")
+        # dough's whisk comes first, then bread's fire
+        assert tools.index("whisk") < tools.index("fire")
 
     def test_unknown_recipe_returns_empty(self):
         assert get_all_tools("nonexistent") == []
