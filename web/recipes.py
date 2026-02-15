@@ -17,8 +17,9 @@ Recipe = Dict[str, Any]
 # =============================================================================
 # Types:
 #   "tool"    — kitchen tools (reusable, not consumed)
-#   "store"   — purchased from a store
+#   "store"   — purchased from a store (optional "pack_size" for bulk packs)
 #   "default" — freely available (e.g. water)
+#   "fishing" — caught by fishing
 
 INGREDIENTS: List[Ingredient] = [
     # Tools
@@ -29,27 +30,41 @@ INGREDIENTS: List[Ingredient] = [
     {"id": "juicer", "name": "Соковыжималка", "type": "tool"},
     # Default
     {"id": "water", "name": "Вода", "type": "default"},
-    # Store
+    # Store (pack_size = items per pack; omitted = sold individually)
     {"id": "milk", "name": "Молоко", "type": "store"},
-    {"id": "flour", "name": "Мука", "type": "store"},
-    {"id": "egg", "name": "Яйцо", "type": "store"},
+    {"id": "flour", "name": "Мука", "type": "store", "pack_size": 10},
+    {"id": "egg", "name": "Яйцо", "type": "store", "pack_size": 10},
     {"id": "sugar", "name": "Сахар", "type": "store"},
     {"id": "salt", "name": "Соль", "type": "store"},
     {"id": "butter", "name": "Сливочное масло", "type": "store"},
     {"id": "cheese", "name": "Сыр", "type": "store"},
-    {"id": "tomato", "name": "Помидор", "type": "store"},
-    {"id": "onion", "name": "Лук", "type": "store"},
-    {"id": "garlic", "name": "Чеснок", "type": "store"},
-    {"id": "pepper", "name": "Перец", "type": "store"},
+    {"id": "tomato", "name": "Помидор", "type": "store", "pack_size": 10},
+    {"id": "onion", "name": "Лук", "type": "store", "pack_size": 10},
+    {"id": "garlic", "name": "Чеснок", "type": "store", "pack_size": 10},
+    {"id": "pepper", "name": "Перец", "type": "store", "pack_size": 10},
     {"id": "rice", "name": "Рис", "type": "store"},
     {"id": "chicken", "name": "Курица", "type": "store"},
     {"id": "beef", "name": "Говядина", "type": "store"},
     {"id": "cream", "name": "Сливки", "type": "store"},
-    {"id": "lemon", "name": "Лимон", "type": "store"},
-    {"id": "apple", "name": "Яблоко", "type": "store"},
+    {"id": "lemon", "name": "Лимон", "type": "store", "pack_size": 10},
+    {"id": "apple", "name": "Яблоко", "type": "store", "pack_size": 10},
     {"id": "cocoa", "name": "Какао", "type": "store"},
     {"id": "yeast", "name": "Дрожжи", "type": "store"},
     {"id": "sausage", "name": "Колбаса", "type": "store"},
+    # Fishing
+    {"id": "sterlet", "name": "Стерлядь", "type": "fishing"},
+    {"id": "salmon", "name": "Лосось", "type": "fishing"},
+    {"id": "sturgeon", "name": "Осётр", "type": "fishing"},
+    {"id": "black_carp", "name": "Чёрный амур", "type": "fishing"},
+    {"id": "ray", "name": "Скат", "type": "fishing"},
+    {"id": "tuna", "name": "Тунец", "type": "fishing"},
+    {"id": "dolly_varden", "name": "Мальма", "type": "fishing"},
+    {"id": "fugu", "name": "Фугу", "type": "fishing"},
+    {"id": "smelt", "name": "Корюшка", "type": "fishing"},
+    {"id": "perch", "name": "Окунь", "type": "fishing"},
+    {"id": "eel", "name": "Угорь", "type": "fishing"},
+    {"id": "pike", "name": "Щука", "type": "fishing"},
+    {"id": "any_fish", "name": "Любая рыба (кроме Фугу, Лосося, Тунца)", "type": "fishing"},
 ]
 
 # =============================================================================
@@ -118,6 +133,12 @@ RECIPES: List[Recipe] = [
         "name": "Пицца",
         "ingredients": ["pizza_dough", "tomato_sauce", "cheese", "sausage"],
         "tools": ["fire"],
+    },
+    {
+        "id": "fish_mince",
+        "name": "Рыбный фарш",
+        "ingredients": ["any_fish"],
+        "tools": ["knife"],
     },
 ]
 
@@ -204,11 +225,12 @@ def get_sub_recipes(recipe_id: str) -> List[Recipe]:
 
 
 def get_shopping_list(recipe_id: str) -> Dict[str, int]:
-    """Recursively collect all store-type ingredients needed for a recipe.
+    """Recursively collect all purchasable ingredients needed for a recipe.
 
-    Returns a dict of {ingredient_id: count}. Each appearance of an ingredient
-    in any sub-recipe or the recipe itself counts as 1. Shared sub-recipes
-    are only counted once (deduplicated via visited set).
+    Collects store-type and fishing-type ingredients. Returns a dict of
+    {ingredient_id: count}. Each appearance of an ingredient in any sub-recipe
+    or the recipe itself counts as 1. Shared sub-recipes are only counted once
+    (deduplicated via visited set).
     """
     counts: Dict[str, int] = {}
     visited: Set[str] = set()
@@ -225,7 +247,7 @@ def get_shopping_list(recipe_id: str) -> Dict[str, int]:
                 _collect(ing_id)
             elif ing_id in _INGREDIENTS_BY_ID:
                 ing = _INGREDIENTS_BY_ID[ing_id]
-                if ing["type"] == "store":
+                if ing["type"] in ("store", "fishing"):
                     counts[ing_id] = counts.get(ing_id, 0) + 1
 
     _collect(recipe_id)
@@ -293,6 +315,14 @@ def validate_recipes() -> None:
     collisions = set(ing_ids) & set(rec_ids)
     if collisions:
         raise RecipeValidationError(f"IDs used as both ingredient and recipe: {collisions}")
+
+    # Check ingredient types
+    valid_types = {"tool", "store", "default", "fishing"}
+    for ing in INGREDIENTS:
+        if ing["type"] not in valid_types:
+            raise RecipeValidationError(
+                f"Ingredient '{ing['id']}' has invalid type '{ing['type']}'"
+            )
 
     # Check all refs resolve
     valid_ids = set(ing_ids) | set(rec_ids)

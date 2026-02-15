@@ -526,6 +526,8 @@ def prepare_recipes_data() -> Dict[str, Any]:
                 "id": ing_id,
                 "name": ingredients_by_id.get(ing_id, {}).get("name", ing_id),
                 "count": count,
+                "pack_size": ingredients_by_id.get(ing_id, {}).get("pack_size", 1),
+                "type": ingredients_by_id.get(ing_id, {}).get("type", "store"),
             }
             for ing_id, count in shopping.items()
         ]

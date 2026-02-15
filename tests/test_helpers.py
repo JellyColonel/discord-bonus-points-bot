@@ -225,3 +225,44 @@ def test_prepare_recipes_data_ingredient_is_recipe_flag():
 
     assert dough_ing["is_recipe"] is True
     assert water_ing["is_recipe"] is False
+
+
+def test_prepare_recipes_data_pack_size():
+    """Shopping list items should include pack_size field."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    # Dough uses flour (pack_size=10) and egg (pack_size=10)
+    dough = next(r for r in data["recipes"] if r["id"] == "dough")
+
+    flour_item = next(i for i in dough["shopping_list"] if i["id"] == "flour")
+    egg_item = next(i for i in dough["shopping_list"] if i["id"] == "egg")
+
+    assert flour_item["pack_size"] == 10
+    assert egg_item["pack_size"] == 10
+
+
+def test_prepare_recipes_data_pack_size_default():
+    """Ingredients without pack_size should default to 1."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    # Scrambled eggs uses butter (no pack_size)
+    scrambled = next(r for r in data["recipes"] if r["id"] == "scrambled_eggs")
+
+    butter_item = next(i for i in scrambled["shopping_list"] if i["id"] == "butter")
+    assert butter_item["pack_size"] == 1
+
+
+def test_prepare_recipes_data_fishing_type():
+    """Fishing items should appear in shopping list with correct type."""
+    from web.helpers import prepare_recipes_data
+
+    data = prepare_recipes_data()
+    fish_mince = next(r for r in data["recipes"] if r["id"] == "fish_mince")
+
+    assert len(fish_mince["shopping_list"]) == 1
+    any_fish = fish_mince["shopping_list"][0]
+    assert any_fish["id"] == "any_fish"
+    assert any_fish["type"] == "fishing"
+    assert any_fish["count"] == 1
