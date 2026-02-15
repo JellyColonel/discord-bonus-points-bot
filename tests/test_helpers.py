@@ -163,14 +163,13 @@ def test_prepare_recipes_data_simple_recipe():
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    # Find scrambled_eggs (a simple recipe)
-    scrambled = next(r for r in data["recipes"] if r["id"] == "scrambled_eggs")
+    fried = next(r for r in data["recipes"] if r["id"] == "fried_eggs")
 
-    assert scrambled["step_count"] == 1
-    assert scrambled["steps"] == []
-    assert scrambled["final_step"]["id"] == "scrambled_eggs"
-    assert len(scrambled["final_step"]["ingredients"]) == 3
-    assert len(scrambled["final_step"]["tools"]) == 1
+    assert fried["step_count"] == 1
+    assert fried["steps"] == []
+    assert fried["final_step"]["id"] == "fried_eggs"
+    assert len(fried["final_step"]["ingredients"]) == 1
+    assert len(fried["final_step"]["tools"]) == 1
 
 
 def test_prepare_recipes_data_chained_recipe():
@@ -178,26 +177,25 @@ def test_prepare_recipes_data_chained_recipe():
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    # mac_and_cheese → macaroni → dough (2 sub-steps + 1 final = 3 steps)
-    mac = next(r for r in data["recipes"] if r["id"] == "mac_and_cheese")
+    # cheese_sandwich → bread → dough, + cheese (3 sub-steps + 1 final = 4 steps)
+    sandwich = next(r for r in data["recipes"] if r["id"] == "cheese_sandwich")
 
-    assert mac["step_count"] == 3
-    assert len(mac["steps"]) == 2
-    step_ids = [s["id"] for s in mac["steps"]]
-    assert step_ids.index("dough") < step_ids.index("macaroni")
-    assert mac["final_step"]["id"] == "mac_and_cheese"
+    assert sandwich["step_count"] == 4
+    assert len(sandwich["steps"]) == 3
+    step_ids = [s["id"] for s in sandwich["steps"]]
+    assert step_ids.index("dough") < step_ids.index("bread")
+    assert sandwich["final_step"]["id"] == "cheese_sandwich"
 
 
 def test_prepare_recipes_data_shopping_list():
-    """Shopping list should contain only store-type ingredients."""
+    """Shopping list should contain only store/fishing-type ingredients."""
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    lemonade = next(r for r in data["recipes"] if r["id"] == "lemonade")
+    smoothie = next(r for r in data["recipes"] if r["id"] == "vegetable_smoothie")
 
-    shopping_ids = {item["id"] for item in lemonade["shopping_list"]}
-    assert "lemon" in shopping_ids
-    assert "sugar" in shopping_ids
+    shopping_ids = {item["id"] for item in smoothie["shopping_list"]}
+    assert "vegetables" in shopping_ids
     assert "water" not in shopping_ids  # default type, not store
 
 
@@ -206,10 +204,10 @@ def test_prepare_recipes_data_all_tools():
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    macaroni = next(r for r in data["recipes"] if r["id"] == "macaroni")
+    bread = next(r for r in data["recipes"] if r["id"] == "bread")
 
-    tool_ids = {t["id"] for t in macaroni["all_tools"]}
-    assert tool_ids == {"whisk", "knife", "fire"}
+    tool_ids = {t["id"] for t in bread["all_tools"]}
+    assert tool_ids == {"whisk", "fire"}
 
 
 def test_prepare_recipes_data_ingredient_is_recipe_flag():
@@ -217,9 +215,9 @@ def test_prepare_recipes_data_ingredient_is_recipe_flag():
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    macaroni = next(r for r in data["recipes"] if r["id"] == "macaroni")
+    pasta = next(r for r in data["recipes"] if r["id"] == "pasta")
 
-    ings = macaroni["final_step"]["ingredients"]
+    ings = pasta["final_step"]["ingredients"]
     dough_ing = next(i for i in ings if i["id"] == "dough")
     water_ing = next(i for i in ings if i["id"] == "water")
 
@@ -243,15 +241,14 @@ def test_prepare_recipes_data_pack_size():
 
 
 def test_prepare_recipes_data_pack_size_default():
-    """Ingredients without pack_size should default to 1."""
+    """Fishing ingredients without pack_size should default to 1."""
     from web.helpers import prepare_recipes_data
 
     data = prepare_recipes_data()
-    # Scrambled eggs uses butter (no pack_size)
-    scrambled = next(r for r in data["recipes"] if r["id"] == "scrambled_eggs")
+    fish_mince = next(r for r in data["recipes"] if r["id"] == "fish_mince")
 
-    butter_item = next(i for i in scrambled["shopping_list"] if i["id"] == "butter")
-    assert butter_item["pack_size"] == 1
+    any_fish_item = next(i for i in fish_mince["shopping_list"] if i["id"] == "any_fish")
+    assert any_fish_item["pack_size"] == 1
 
 
 def test_prepare_recipes_data_fishing_type():
