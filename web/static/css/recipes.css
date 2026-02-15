@@ -359,6 +359,11 @@
     color: var(--success);
 }
 
+.summary-item-fish {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--info-color);
+}
+
 .summary-item-tool {
     background: rgba(254, 231, 92, 0.15);
     color: var(--warning-color);
@@ -366,6 +371,11 @@
 
 .summary-item-count {
     font-weight: 700;
+}
+
+.summary-item-packs {
+    font-size: 11px;
+    opacity: 0.8;
 }
 
 /* =================================================================

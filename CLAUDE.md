@@ -132,7 +132,9 @@ Edit `web/recipes.py`:
 ```python
 {"id": "potato", "name": "Картофель", "type": "store"}
 ```
-Types: `"tool"` (reusable), `"store"` (purchased), `"default"` (free, e.g. water).
+Types: `"tool"` (reusable), `"store"` (purchased, optional `"pack_size": 10` for bulk packs), `"default"` (free, e.g. water), `"fishing"` (caught by fishing).
+
+The `any_fish` pseudo-ingredient (type `"fishing"`) represents "any fish except Fugu, Salmon, Tuna" — the rule is communicated via its display name.
 
 **To add a recipe**, append to the `RECIPES` list:
 ```python

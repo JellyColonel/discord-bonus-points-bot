@@ -277,8 +277,16 @@ function buildDetailHTML(recipe) {
                     <div class="summary-items">
             `;
             recipe.shopping_list.forEach(item => {
-                const countStr = item.count > 1 ? ` <span class="summary-item-count">×${item.count}</span>` : '';
-                html += `<span class="summary-item summary-item-shop">${escapeHTML(item.name)}${countStr}</span>`;
+                const cls = item.type === 'fishing' ? 'summary-item-fish' : 'summary-item-shop';
+                let countStr = '';
+                if (item.count > 1 || item.pack_size > 1) {
+                    countStr = ` <span class="summary-item-count">×${item.count}</span>`;
+                    if (item.pack_size > 1) {
+                        const packs = Math.ceil(item.count / item.pack_size);
+                        countStr += ` <span class="summary-item-packs">(${packs} уп. по ${item.pack_size})</span>`;
+                    }
+                }
+                html += `<span class="summary-item ${cls}">${escapeHTML(item.name)}${countStr}</span>`;
             });
             html += '</div></div>';
         }

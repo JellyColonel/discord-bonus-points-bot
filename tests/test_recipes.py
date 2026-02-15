@@ -49,7 +49,7 @@ class TestDataIntegrity:
             assert "id" in ing
             assert "name" in ing
             assert "type" in ing
-            assert ing["type"] in ("tool", "store", "default")
+            assert ing["type"] in ("tool", "store", "default", "fishing")
 
     def test_all_recipes_have_required_fields(self):
         for rec in RECIPES:
@@ -190,6 +190,11 @@ class TestShoppingList:
     def test_unknown_recipe_returns_empty(self):
         assert get_shopping_list("nonexistent") == {}
 
+    def test_fish_mince_shopping_list(self):
+        """Fish mince needs any_fish (fishing type, included in shopping list)."""
+        shopping = get_shopping_list("fish_mince")
+        assert shopping == {"any_fish": 1}
+
 
 class TestAllTools:
     def test_simple_recipe(self):
@@ -215,6 +220,11 @@ class TestAllTools:
 
     def test_unknown_recipe_returns_empty(self):
         assert get_all_tools("nonexistent") == []
+
+    def test_fish_mince_tools(self):
+        """Fish mince needs only a knife."""
+        tools = get_all_tools("fish_mince")
+        assert tools == ["knife"]
 
 
 # ============================================================================
